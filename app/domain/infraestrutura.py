@@ -11,6 +11,7 @@ __all__ = [
     "InfraestruturaDependencia",
     "InfraestruturaLocalizacao",
     "InfraestruturaEscola",
+    "InfraestruturaRegistroBruto",
     "InfraestruturaTemporalDependencia",
 ]
 
@@ -96,6 +97,25 @@ class InfraestruturaEscola:
     nu_ano_censo: int
     metricas: dict[str, int]
     score: int
+
+
+@dataclass(frozen=True)
+class InfraestruturaRegistroBruto:
+    """Registro de infraestrutura de uma escola em um ano do Censo Escolar.
+
+    Este é o formato de entrada para as consultas da análise Escola × Município.
+    Diferentemente dos objetos usados pelos gráficos atuais, os indicadores não
+    são binarizados, agregados ou usados para calcular score nesta etapa. O valor
+    ``None`` vindo de ``silver.infraestrutura_comum`` é preservado para que a
+    camada de serviço possa distinguir ausência de dado de valor zero.
+    """
+
+    co_entidade: int
+    no_entidade: str
+    co_municipio: int
+    no_municipio: str
+    nu_ano_censo: int
+    indicadores: dict[str, int | None]
 
 
 @dataclass(frozen=True)
