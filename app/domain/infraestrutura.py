@@ -1,4 +1,6 @@
+from collections.abc import Collection, Iterable
 from dataclasses import dataclass
+from typing import Literal
 
 # TotalEscolas é genérico (apenas um inteiro) — reaproveitado de acessibilidade
 # em vez de duplicar.
@@ -12,7 +14,21 @@ __all__ = [
     "InfraestruturaLocalizacao",
     "InfraestruturaEscola",
     "InfraestruturaRegistroBruto",
+    "IndiceInfraestrutura",
+    "ComparacaoInfraestruturaAno",
+    "SituacaoComparacaoInfraestrutura",
+    "calcular_indice_infraestrutura",
+    "calcular_comparacao_infraestrutura_ano",
+    "calcular_serie_comparacao_infraestrutura",
     "InfraestruturaTemporalDependencia",
+]
+
+
+SituacaoComparacaoInfraestrutura = Literal[
+    "disponivel",
+    "escola_sem_dados",
+    "sem_pares_validos",
+    "sem_pares_municipio",
 ]
 
 
@@ -116,6 +132,204 @@ class InfraestruturaRegistroBruto:
     no_municipio: str
     nu_ano_censo: int
     indicadores: dict[str, int | None]
+
+
+@dataclass(frozen=True)
+class IndiceInfraestrutura:
+    """Resultado intermediário do índice de uma escola em um ano.
+
+    ``presentes`` conta indicadores iguais a 1 e ``validos`` conta indicadores
+    não nulos. A cobertura de indicadores é separada da cobertura de pares
+    usada na comparação municipal.
+    """
+
+    percentual: float | None
+    presentes: int
+    validos: int
+    total_indicadores: int
+    cobertura_indicadores_percentual: float | None
+
+
+@dataclass(frozen=True)
+class ComparacaoInfraestruturaAno:
+    """Comparação de uma escola com as demais escolas do município em um ano."""
+
+    ano: int
+    situacao: SituacaoComparacaoInfraestrutura
+    indice_escola_percentual: float | None
+    media_municipal_percentual: float | None
+    diferenca_pontos_percentuais: float | None
+    quantidade_pares_validos: int
+    denominador_pares: int
+    cobertura_pares_percentual: float | None
+
+
+def _validar_cobertura_minima(cobertura_minima_percentual: float | None) -> None:
+    if cobertura_minima_percentual is not None and not (
+        0 <= cobertura_minima_percentual <= 100
+    ):
+        raise ValueError("A cobertura mínima deve estar entre 0 e 100.")
+
+
+def calcular_indice_infraestrutura(
+    indicadores: dict[str, int | None],
+    *,
+    indicadores_esperados: Collection[str] | None = None,
+    cobertura_minima_percentual: float | None = None,
+) -> IndiceInfraestrutura:
+    """Calcula ``100 × presentes / válidos`` preservando a ausência de dados.
+
+    Valores 0 e 1 são válidos, enquanto ``None`` é excluído do denominador.
+    Quando uma lista de indicadores esperados é informada, chaves ausentes no
+    registro são tratadas como nulas. A cobertura mínima é configurável para
+    que a regra possa ser usada antes da homologação de um percentual oficial.
+    """
+
+    _validar_cobertura_minima(cobertura_minima_percentual)
+
+    chaves = tuple(
+        indicadores.keys()
+        if indicadores_esperados is None
+        else indicadores_esperados
+    )
+    if len(chaves) != len(set(chaves)):
+        raise ValueError("A lista de indicadores esperados contém duplicatas.")
+    valores = [indicadores.get(chave) for chave in chaves]
+
+    invalidos = [valor for valor in valores if valor not in (0, 1, None)]
+    if invalidos:
+        raise ValueError("Indicadores de infraestrutura devem ser 0, 1 ou None.")
+
+    total_indicadores = len(chaves)
+    validos = sum(valor is not None for valor in valores)
+    presentes = sum(valor == 1 for valor in valores)
+    cobertura = (
+        round(100 * validos / total_indicadores, 2)
+        if total_indicadores
+        else None
+    )
+
+    percentual: float | None = None
+    atende_cobertura = (
+        cobertura_minima_percentual is None
+        or (cobertura is not None and cobertura >= cobertura_minima_percentual)
+    )
+    if validos and atende_cobertura:
+        percentual = round(100 * presentes / validos, 2)
+
+    return IndiceInfraestrutura(
+        percentual=percentual,
+        presentes=presentes,
+        validos=validos,
+        total_indicadores=total_indicadores,
+        cobertura_indicadores_percentual=cobertura,
+    )
+
+
+def calcular_comparacao_infraestrutura_ano(
+    escola: InfraestruturaRegistroBruto,
+    referencias: Iterable[InfraestruturaRegistroBruto],
+    *,
+    indicadores_esperados: Collection[str] | None = None,
+    cobertura_minima_percentual: float | None = None,
+) -> ComparacaoInfraestruturaAno:
+    """Compara uma escola com pares do mesmo município e ano.
+
+    A escola consultada é sempre excluída das referências. Cada escola de
+    referência com índice válido tem o mesmo peso na média municipal.
+    """
+
+    indice_escola = calcular_indice_infraestrutura(
+        escola.indicadores,
+        indicadores_esperados=indicadores_esperados,
+        cobertura_minima_percentual=cobertura_minima_percentual,
+    )
+
+    pares = [
+        registro
+        for registro in referencias
+        if registro.co_entidade != escola.co_entidade
+        and registro.co_municipio == escola.co_municipio
+        and registro.nu_ano_censo == escola.nu_ano_censo
+    ]
+    identificadores = [registro.co_entidade for registro in pares]
+    if len(identificadores) != len(set(identificadores)):
+        raise ValueError("Há escolas de referência duplicadas para o mesmo ano.")
+
+    indices_pares = [
+        calcular_indice_infraestrutura(
+            registro.indicadores,
+            indicadores_esperados=indicadores_esperados,
+            cobertura_minima_percentual=cobertura_minima_percentual,
+        ).percentual
+        for registro in pares
+    ]
+    indices_validos = [indice for indice in indices_pares if indice is not None]
+
+    denominador_pares = len(pares)
+    quantidade_pares_validos = len(indices_validos)
+    cobertura_pares = (
+        round(100 * quantidade_pares_validos / denominador_pares, 2)
+        if denominador_pares
+        else None
+    )
+    media_municipal = (
+        round(sum(indices_validos) / quantidade_pares_validos, 2)
+        if quantidade_pares_validos
+        else None
+    )
+
+    if indice_escola.percentual is None:
+        situacao: SituacaoComparacaoInfraestrutura = "escola_sem_dados"
+    elif denominador_pares == 0:
+        situacao = "sem_pares_municipio"
+    elif quantidade_pares_validos == 0:
+        situacao = "sem_pares_validos"
+    else:
+        situacao = "disponivel"
+
+    diferenca = (
+        round(indice_escola.percentual - media_municipal, 2)
+        if indice_escola.percentual is not None and media_municipal is not None
+        else None
+    )
+
+    return ComparacaoInfraestruturaAno(
+        ano=escola.nu_ano_censo,
+        situacao=situacao,
+        indice_escola_percentual=indice_escola.percentual,
+        media_municipal_percentual=media_municipal,
+        diferenca_pontos_percentuais=diferenca,
+        quantidade_pares_validos=quantidade_pares_validos,
+        denominador_pares=denominador_pares,
+        cobertura_pares_percentual=cobertura_pares,
+    )
+
+
+def calcular_serie_comparacao_infraestrutura(
+    registros_escola: Iterable[InfraestruturaRegistroBruto],
+    referencias: Iterable[InfraestruturaRegistroBruto],
+    *,
+    indicadores_esperados: Collection[str] | None = None,
+    cobertura_minima_percentual: float | None = None,
+) -> list[ComparacaoInfraestruturaAno]:
+    """Calcula a série anual em ordem crescente de ano do Censo Escolar."""
+
+    registros = list(registros_escola)
+    anos = [registro.nu_ano_censo for registro in registros]
+    if len(anos) != len(set(anos)):
+        raise ValueError("Há mais de um registro da escola para o mesmo ano.")
+
+    referencias_materializadas = list(referencias)
+    return [
+        calcular_comparacao_infraestrutura_ano(
+            escola,
+            referencias_materializadas,
+            indicadores_esperados=indicadores_esperados,
+            cobertura_minima_percentual=cobertura_minima_percentual,
+        )
+        for escola in sorted(registros, key=lambda registro: registro.nu_ano_censo)
+    ]
 
 
 @dataclass(frozen=True)
