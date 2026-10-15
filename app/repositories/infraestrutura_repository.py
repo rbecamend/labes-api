@@ -281,6 +281,35 @@ class InfraestruturaRepository:
         return [_row_to_registro_bruto(row) for row in result.mappings()]
 
 
+    async def find_pares_municipais(
+        self,
+        *,
+        co_entidade_excluida: int,
+        co_municipio: int | None,
+        ano: int,
+    ) -> list[InfraestruturaRegistroBruto]:
+        """BE-03: escolas diferentes da selecionada no mesmo município/ano.
+
+        A comparação usa CO_MUNICIPIO do registro histórico da escola, não a
+        localização atual. Mantém 0 e NULL para o domínio decidir elegibilidade.
+        """
+        if co_municipio is None:
+            return []
+        i = infraestrutura_comum.c
+        stmt = (
+            select(*self._colunas_registro_bruto())
+            .where(
+                i.CO_MUNICIPIO == co_municipio,
+                i.NU_ANO_CENSO == ano,
+                i.CO_ENTIDADE != co_entidade_excluida,
+                i.CO_ENTIDADE.is_not(None),
+            )
+            .order_by(i.CO_ENTIDADE.asc())
+        )
+        result = await self._execute(stmt)
+        return [_row_to_registro_bruto(row) for row in result.mappings()]
+
+
     async def find_media_por_municipio(
         self,
         *,
