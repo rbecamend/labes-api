@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.domain.infraestrutura import (
     InfraestruturaDependencia,
     InfraestruturaEscola,
+    InfraestruturaRegistroBruto,
     InfraestruturaLocalizacao,
     InfraestruturaMunicipio,
     InfraestruturaTemporal,
@@ -128,6 +129,18 @@ def _row_to_escola(row) -> InfraestruturaEscola:
     )
 
 
+def _row_to_registro_bruto(row) -> InfraestruturaRegistroBruto:
+    """Monta o formato da BE-01 sem modificar 0/1/NULL."""
+    return InfraestruturaRegistroBruto(
+        co_entidade=row["co_entidade"],
+        no_entidade=row["no_entidade"],
+        co_municipio=row["co_municipio"],
+        no_municipio=row["no_municipio"],
+        nu_ano_censo=row["nu_ano_censo"],
+        indicadores={chave: row[chave] for chave in METRIC_KEYS},
+    )
+
+
 def _row_to_temporal_dependencia(row) -> InfraestruturaTemporalDependencia:
     return InfraestruturaTemporalDependencia(
         ano=int(row.ano),
@@ -228,6 +241,45 @@ class InfraestruturaRepository:
         if pibid is not None:
             stmt = stmt.where(i.pibid == (1 if pibid else 0))
         return stmt
+
+    @staticmethod
+    def _colunas_registro_bruto():
+        """BE-02: seleção original da Silver, sem COALESCE ou CASE."""
+        i = infraestrutura_comum.c
+        return [
+            i.CO_ENTIDADE.label("co_entidade"),
+            i.NO_ENTIDADE.label("no_entidade"),
+            i.CO_MUNICIPIO.label("co_municipio"),
+            i.NO_MUNICIPIO.label("no_municipio"),
+            i.NU_ANO_CENSO.label("nu_ano_censo"),
+            *(col.label(chave) for chave, col in METRIC_TO_COLUMN.items()),
+        ]
+
+    async def find_historico_escola(
+        self,
+        *,
+        co_entidade: int,
+        anos_comparaveis: list[int] | tuple[int, ...] | None = None,
+    ) -> list[InfraestruturaRegistroBruto]:
+        """BE-02: todos os anos observados, ou apenas os anos informados.
+
+        None significa sem filtro temporal (não implica homologação dos anos).
+        Uma lista vazia significa nenhum ano aprovado, portanto retorna [].
+        Mantém duplicidades para a camada de domínio sinalizar integridade.
+        """
+        if anos_comparaveis is not None and not anos_comparaveis:
+            return []
+        i = infraestrutura_comum.c
+        stmt = (
+            select(*self._colunas_registro_bruto())
+            .where(i.CO_ENTIDADE == co_entidade, i.NU_ANO_CENSO.is_not(None))
+            .order_by(i.NU_ANO_CENSO.asc())
+        )
+        if anos_comparaveis is not None:
+            stmt = stmt.where(i.NU_ANO_CENSO.in_(anos_comparaveis))
+        result = await self._execute(stmt)
+        return [_row_to_registro_bruto(row) for row in result.mappings()]
+
 
     async def find_media_por_municipio(
         self,
