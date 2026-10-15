@@ -310,6 +310,33 @@ class InfraestruturaRepository:
         return [_row_to_registro_bruto(row) for row in result.mappings()]
 
 
+    async def find_identificacao_escola(
+        self, *, co_entidade: int
+    ) -> dict[str, int | str | None] | None:
+        """BE-04: escola existe na Silver mesmo sem anos no recorte pedido?
+
+        O município e nome mais recentes servem somente para IDENTIFICAÇÃO;
+        comparações históricas sempre usam o município do registro daquele ano.
+        None significa que a escola não foi encontrada na fonte consultada.
+        """
+        i = infraestrutura_comum.c
+        stmt = (
+            select(
+                i.CO_ENTIDADE.label("co_entidade"),
+                i.NO_ENTIDADE.label("no_entidade"),
+                i.CO_MUNICIPIO.label("co_municipio"),
+                i.NO_MUNICIPIO.label("no_municipio"),
+                i.NU_ANO_CENSO.label("nu_ano_censo"),
+            )
+            .where(i.CO_ENTIDADE == co_entidade)
+            .order_by(i.NU_ANO_CENSO.desc().nulls_last())
+            .limit(1)
+        )
+        result = await self._execute(stmt)
+        row = result.mappings().first()
+        return dict(row) if row is not None else None
+
+
     async def find_media_por_municipio(
         self,
         *,
