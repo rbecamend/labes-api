@@ -21,6 +21,11 @@ class ForbiddenError(AppError):
     code = "forbidden"
 
 
+class WarehouseUnavailableError(AppError):
+    status_code = 503
+    code = "warehouse_unavailable"
+
+
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,

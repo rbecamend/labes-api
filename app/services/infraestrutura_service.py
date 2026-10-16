@@ -1,9 +1,11 @@
 import asyncio
 import json
+from dataclasses import asdict
 
 import pandas as pd
 import plotly.graph_objects as go
 
+from app.core.exceptions import NotFoundError
 from app.domain.infraestrutura import (
     InfraestruturaDependencia,
     InfraestruturaEscola,
@@ -12,6 +14,7 @@ from app.domain.infraestrutura import (
     InfraestruturaTemporal,
     InfraestruturaTemporalDependencia,
     TotalEscolas,
+    calcular_serie_comparacao_infraestrutura,
 )
 from app.repositories.infraestrutura_repository import InfraestruturaRepository
 from app.services.chart_factory import ChartFactory
@@ -57,6 +60,13 @@ METRICS_BY_KEY: dict[str, str] = {key: label for key, label in METRIC_FIELDS}
 PAINEL_DESCRICAO = "painel_infraestrutura"
 MAPA_DESCRICAO = "mapa_infraestrutura"
 ANALISE_TEMPORAL_DESCRICAO = "analise_temporal_infraestrutura"
+COMPARACAO_MUNICIPIO_DESCRICAO = "comparacao_infraestrutura_escola_municipio"
+VERSAO_METODOLOGIA_COMPARACAO = "infraestrutura-v2-provisoria"
+ANOS_COMPARACAO = (2022, 2023, 2024, 2025)
+OBSERVACAO_METODOLOGIA_COMPARACAO = (
+    "Metodologia provisória e não homologada. "
+    "Os resultados não são indicadores oficiais."
+)
 TAB_PERCENT_ROW_HEIGHT_PX = 42
 TAB_PERCENT_HEADER_PX = 130
 TAB_PERCENT_VISIBLE_ROWS = 5
@@ -329,6 +339,100 @@ class InfraestruturaService:
                     "evolucao_temporal_por_dependencia": grafico_dependencia,
                 },
             },
+        }
+
+    async def build_comparacao_municipio(self, co_entidade: int) -> dict:
+        """Monta a comparação anual entre a escola e seus pares municipais.
+
+        A identificação mais recente é usada somente no cabeçalho. Cada ponto
+        observado usa o município histórico do respectivo ano. Anos sem
+        registro permanecem na série como lacunas explícitas.
+        """
+        identificacao = await self._repository.find_identificacao_escola(
+            co_entidade=co_entidade
+        )
+        if identificacao is None:
+            raise NotFoundError(f"Escola {co_entidade} não encontrada.")
+
+        registros = await self._repository.find_historico_escola(
+            co_entidade=co_entidade,
+            anos_comparaveis=ANOS_COMPARACAO,
+        )
+        pares_por_registro = await asyncio.gather(
+            *(
+                self._repository.find_pares_municipais(
+                    co_entidade_excluida=co_entidade,
+                    co_municipio=registro.co_municipio,
+                    ano=registro.nu_ano_censo,
+                )
+                for registro in registros
+            )
+        )
+        referencias = [
+            par for pares_do_ano in pares_por_registro for par in pares_do_ano
+        ]
+        indicadores = tuple(chave for chave, _ in METRIC_FIELDS)
+        resultados = calcular_serie_comparacao_infraestrutura(
+            registros,
+            referencias,
+            indicadores_esperados=indicadores,
+            cobertura_minima_percentual=None,
+        )
+        resultados_por_ano = {
+            resultado.ano: asdict(resultado) for resultado in resultados
+        }
+        serie = [
+            resultados_por_ano.get(
+                ano,
+                self._ponto_comparacao_sem_dados(
+                    ano=ano,
+                    total_indicadores=len(indicadores),
+                ),
+            )
+            for ano in ANOS_COMPARACAO
+        ]
+
+        return {
+            "descricao": COMPARACAO_MUNICIPIO_DESCRICAO,
+            "data": {
+                "escola": {
+                    "co_entidade": identificacao["co_entidade"],
+                    "no_entidade": identificacao["no_entidade"],
+                },
+                "municipio": {
+                    "co_municipio": identificacao["co_municipio"],
+                    "no_municipio": identificacao["no_municipio"],
+                },
+                "metodologia": {
+                    "versao": VERSAO_METODOLOGIA_COMPARACAO,
+                    "homologada": False,
+                    "anos": list(ANOS_COMPARACAO),
+                    "indicadores": list(indicadores),
+                    "total_indicadores": len(indicadores),
+                    "cobertura_minima_percentual": None,
+                    "observacao": OBSERVACAO_METODOLOGIA_COMPARACAO,
+                },
+                "serie": serie,
+            },
+        }
+
+    @staticmethod
+    def _ponto_comparacao_sem_dados(
+        *, ano: int, total_indicadores: int
+    ) -> dict:
+        return {
+            "ano": ano,
+            "situacao": "escola_sem_dados",
+            "indice_escola_percentual": None,
+            "quantidade_indicadores_presentes": 0,
+            "quantidade_indicadores_validos": 0,
+            "total_indicadores": total_indicadores,
+            "cobertura_indicadores_percentual": 0.0,
+            "media_municipal_percentual": None,
+            "diferenca_pontos_percentuais": None,
+            "quantidade_pares_validos": 0,
+            "denominador_pares": 0,
+            "cobertura_pares_percentual": None,
         }
 
     # ========================================================================
