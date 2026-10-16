@@ -1,12 +1,12 @@
 # SIE — DAD-05 | Contrato metodológico
 
 **Funcionalidade:** Análise Temporal de Infraestrutura — Escola × Município  
-**Versão:** 0.3 — revisão documental após alinhamento com Backend e Dados  
-**Data da revisão:** 15/10/2026  
+**Versão:** 0.4 — atualização factual após as PRs #9–#12\
+**Data da revisão:** 16/10/2026\
 **Status:** contrato metodológico condicional; princípio da média aritmética aprovado expressamente; decisões complementares e homologação semântica pendentes  
 **Dependências:** DAD-01 documentalmente **NÃO HOMOLOGADA**; DAD-02 preliminar; conjunto fixo de indicadores (S) não homologado.
 
-> Este documento formaliza um contrato metodológico condicional. Não homologa os indicadores nem autoriza resultados definitivos. As DAD-03A, DAD-03B e DAD-04 estão concluídas no escopo técnico exploratório e não são reabertas. Os exemplos são inteiramente fictícios.
+> Este documento formaliza um contrato metodológico condicional. Não homologa os indicadores nem autoriza resultados definitivos. As DAD-03A/B permanecem encerradas no escopo exploratório; a conciliação da API oficial DAD-04 foi integrada pela PR #12, no escopo HTTP controlado. Os exemplos são inteiramente fictícios.
 
 ## 1. Contexto, escopo e estado das decisões
 
@@ -16,13 +16,13 @@ Em esclarecimento de 13/10/2026, o professor aprovou expressamente a utilizaçã
 
 A DAD-01 versão 1.1 permanece **NÃO HOMOLOGADA**. A DAD-02 versão 0.2 registra 68 verificações documentais dos 17 indicadores candidatos entre 2022 e 2025: nomes, descrições, tipos, domínios e marcação de coleta anual. Essa consistência documental não é homologação semântica. O conjunto S continua candidato, sem aprovação formal.
 
-As DAD-03A, DAD-03B e DAD-04 estão concluídas no escopo técnico exploratório. Seus testes e resultados são evidência de implementação e validação técnica, não decisão metodológica. A DAD-05 não reabre essas validações.
+As DAD-03A/B estão concluídas no escopo sintético e empírico exploratório. A DAD-04 experimental preserva sua evidência histórica; a DAD-04 oficial, integrada pela PR #12, concilia a rota HTTP com repositório controlado. Seus resultados são evidência técnica nos cenários exercitados, não decisão metodológica. A DAD-05 não reabre essas validações.
 
-O contrato distingue: (1) calculabilidade matemática; (2) elegibilidade para comparação, definida por política aprovada; (3) validação técnica experimental, que cobre apenas os cenários exercitados; e (4) homologação metodológica e publicação, que dependem de decisões expressas dos responsáveis e dos bloqueios documentais aplicáveis.
+O contrato distingue: (1) calculabilidade matemática; (2) elegibilidade para comparação, definida por política aprovada; (3) validação técnica, limitada aos cenários e ambientes exercitados; e (4) homologação metodológica e publicação, que dependem de decisões expressas dos responsáveis e dos bloqueios documentais aplicáveis.
 
-O quadro de decisões da seção 10 registra separadamente regras expressamente aprovadas, regras implementadas e validadas experimentalmente, e regras ainda pendentes de aprovação formal.
+O quadro de decisões da seção 10 registra separadamente regras expressamente aprovadas, regras implementadas e validadas tecnicamente nos escopos indicados, e regras ainda pendentes de aprovação formal.
 
-**MVP acordado com o backend:** a rota oficial é `GET /infraestrutura/analise-temporal/escolas/{co_entidade}/comparacao-municipio`. A rota `/infraestrutura/analise-temporal/escola-municipio` e a exigência 17/17 pertencem à implementação experimental da PR #44 e não são contrato vigente. O MVP não exige cobertura mínima: o schema compartilhado fixa `cobertura_minima_percentual = null`, e o domínio calcula o índice quando há pelo menos um indicador válido. A integração oficial ainda depende de BE-07/BE-08; os detalhes HTTP da BE-05 não disponíveis localmente permanecem pendentes de conferência com o contrato validado no Plane.
+**MVP acordado com o backend:** a rota oficial é `GET /infraestrutura/analise-temporal/escolas/{co_entidade}/comparacao-municipio`, implementada e integrada pelas PRs #9–#11 e conciliada tecnicamente na PR #12. A rota `/infraestrutura/analise-temporal/escola-municipio` e a exigência 17/17 pertencem à implementação experimental da PR #44 e não são contrato vigente. O MVP não exige cobertura mínima: o schema fixa `cobertura_minima_percentual = null`, e o domínio calcula o índice quando há pelo menos um indicador válido. A integração HTTP controlada foi verificada; a integração da rota oficial com PostgreSQL real permanece pendente.
 
 ## 2. Notação e domínio
 
@@ -121,7 +121,7 @@ Exclusões metodológicas autorizadas são aplicadas antes de formar \(E_{m,y}\)
 
 ## 6. Precisão numérica e apresentação
 
-Preservar a precisão durante soma, divisão, média municipal e subtração é uma necessidade de implementação a alinhar com a BE-05; o arredondamento de apresentação é uma decisão separada. O domínio compartilhado atualmente usa `round(..., 2)` no índice escolar, na média, na diferença e nas coberturas. Portanto, a implementação local ainda não atende à preservação integral da precisão intermediária, e a concordância por frações exatas da DAD-04 só vale para a rota experimental. A equipe deve confirmar o requisito no contrato validado no Plane e tratar a diferença na BE-07/BE-08 antes da validação definitiva. Nenhuma correção do backend está demonstrada nesta revisão. Contagens \(n_{e,y}\) e \(N_{m,y,-e}\) são inteiras.
+O domínio vigente preserva frações exatas (`Fraction`) durante a soma, divisão, média municipal e subtração. A PR #9 corrigiu o arredondamento intermediário; os percentuais públicos de índice, cobertura, média e diferença são arredondados a duas casas somente na saída. A DAD-04 oficial confrontou média e diferença com frações exatas por um oráculo independente no fluxo HTTP controlado. Esse resultado não valida SQL/PostgreSQL real nem decide a apresentação final de valores e avisos ao usuário. Contagens \(n_{e,y}\) e \(N_{m,y,-e}\) são inteiras.
 
 Os exemplos abaixo mostram frações matemáticas exatas; valores com duas casas ilustram apenas a exibição e não descrevem a precisão interna do domínio compartilhado.
 
@@ -227,19 +227,19 @@ Os nomes e estados desta tabela pertencem à proposta histórica e não devem se
 
 Estados e nomes são propostas de contrato, não implementação. A saída temporal pode explicitar que uma escola não foi observada em determinado ano sem inventar score ou comparação para completar uma série.
 
-### 9.1 Compatibilidade com BE-05 e limites da evidência local
+### 9.1 Compatibilidade com BE-05 e limites da conciliação oficial
 
-| Tema | Contrato vigente ou evidência local | Pendência de validação |
+| Tema | Contrato vigente e evidência técnica | Limite ou pendência |
 |---|---|---|
-| Rota | `GET /infraestrutura/analise-temporal/escolas/{co_entidade}/comparacao-municipio`; substitui a rota experimental `/infraestrutura/analise-temporal/escola-municipio` | A rota oficial ainda não consta em `app/routes/infraestrutura.py` neste checkout. |
+| Rota | `GET /infraestrutura/analise-temporal/escolas/{co_entidade}/comparacao-municipio` consta em `app/routes/infraestrutura.py`; BE-07/BE-08 foram integradas pelas PRs #9–#11 e a DAD-04 oficial pela PR #12. | Conciliação com repositório SQL e PostgreSQL real não executada. |
 | Cobertura | MVP sem corte mínimo (`cobertura_minima_percentual = null`); 17/17 era regra experimental | Homologação semântica dos 17 indicadores e ressalvas para índices parciais. |
-| Disponibilidade anual | Schema/domínio: `disponivel`, `escola_sem_dados`, `sem_pares_validos`, `sem_pares_municipio` | A montagem da série fixa 2022–2025 e de anos sem registro depende da integração BE-08; não foi exercitada pela rota oficial. |
-| Denominadores | Índice = 100 × respostas 1 / respostas 0 ou 1; cobertura de indicadores = válidos / 17. Média municipal = média dos índices das demais escolas com índice calculável; pares válidos / todas as demais escolas encontradas no município/ano determina a cobertura dos pares. | Confirmar na integração oficial os recortes, lacunas anuais e os valores exibidos. |
-| Código INEP | Schema de identificação da resposta exige inteiro entre 10.000.000 e 99.999.999 (oito dígitos). | Validação do parâmetro de entrada e resposta para código inválido dependem da BE-05/BE-08; não foram verificadas localmente. |
-| Erros HTTP | Schema preparatório prevê corpo `code`/`message` com `not_found`, `internal_error` ou `warehouse_unavailable`. | Códigos HTTP, mensagens, tratamento de erro de validação e demais condições da BE-05 não foram localizados; consultar o contrato validado no Plane, sem inferi-los desses nomes. |
-| Precisão | A rota experimental devolvia frações exatas; o domínio compartilhado arredonda a duas casas em etapas intermediárias. | A equipe deve alinhar a precisão exigida pela BE-05 e o arredondamento de apresentação antes da validação definitiva BE-07/BE-08. |
+| Disponibilidade anual | A rota oficial retorna a série fixa 2022–2025, incluindo anos sem registro, e exercitou por HTTP os estados `disponivel`, `escola_sem_dados`, `sem_pares_validos`, `sem_pares_municipio`. | Ausência de linha e linha integralmente nula compartilham `escola_sem_dados`; eventual distinção pública exige decisão contratual. |
+| Denominadores | Índice = 100 × respostas 1 / respostas 0 ou 1; cobertura de indicadores = válidos / 17. Média municipal = média dos índices das demais escolas com índice calculável; cobertura dos pares = pares válidos / demais escolas encontradas no município/ano. Os pontos anuais completos concordaram com oráculo independente nos testes HTTP controlados. | A identidade com população e valores de um PostgreSQL ativo não foi verificada. |
+| Código INEP | O parâmetro da rota exige exatamente oito dígitos; cenário HTTP de código inválido retornou `422`. | Não constitui conferência de identificadores contra PostgreSQL real. |
+| Erros HTTP | Os cenários controlados da DAD-04 oficial confirmaram `404/not_found`, `422` de validação, `500/internal_error` e `503/warehouse_unavailable`. | Inválidos e duplicidades causam `500/internal_error` sem distinguir publicamente a causa; tratamento definitivo depende de decisão contratual. |
+| Precisão | O domínio vigente calcula média e diferença com frações exatas e arredonda os percentuais públicos a duas casas na saída; a DAD-04 oficial exercitou casos que distinguem arredondamento intermediário. | Apresentação e avisos finais permanecem sujeitos a REQ-02/REQ-04 e decisão da equipe. |
 
-Esta tabela descreve o acordo informado e o código/schema disponível, não uma execução empírica da rota oficial. A DAD-04 concilia apenas a implementação experimental da PR #44, que não deve ser incorporada.
+Esta tabela separa o contrato operacional e os testes da rota oficial do relatório histórico da rota experimental da PR #44. A DAD-04 oficial registrou 10 testes HTTP controlados aprovados, 4/4 anos do pacote DAD-03B concordantes após conferir a população comparável e hashes SHA-256 10/10; não exerceu PostgreSQL real. Ver [conciliação oficial](DAD-04_CONCILIACAO_API_OFICIAL.md).
 
 ## 10. Quadro de decisões metodológicas
 
@@ -249,18 +249,18 @@ Esta tabela descreve o acordo informado e o código/schema disponível, não uma
 |---|---|
 | Utilização da média aritmética na comparação Escola × Município | Esclarecimento do professor orientador em 13/10/2026. A especificação operacional preservada neste contrato é a média aritmética não ponderada dos índices individuais das demais escolas elegíveis. A aprovação do princípio não decide quem é elegível nem quais exclusões formam a população. |
 
-### 10.2 Implementadas e validadas tecnicamente em escopo experimental
+### 10.2 Implementadas e validadas tecnicamente nos escopos indicados
 
 | Regra/comportamento | Evidência técnica | Limite |
 |---|---|---|
-| Índice individual pela proporção de respostas 1 entre os indicadores válidos, na escala percentual 0–100 | Casos sintéticos e conferência independente dos valores brutos reportados na DAD-03B; frações exatas preservadas | O uso do conjunto S depende de homologação semântica. |
-| Média dos índices individuais das comparadoras e diferença índice escolar menos referência | Implementado na rota experimental; DAD-03B e DAD-04 reportam conferência/concordância dos quatro anos | População elegível e exclusões permanecem decisões do contrato. |
-| Exclusão da escola selecionada da própria referência | Implementada e exercitada nos cenários sintéticos e na comparação experimental | Não há evidência de aprovação expressa separada pelo professor; requer confirmação formal. |
-| NULL distinto de zero; valores ausentes não entram no denominador de uma fração parcial | Coberto por exemplos e testes experimentais | O significado de ausência e eventual não aplicabilidade na fonte não foi homologado. |
+| Índice individual pela proporção de respostas 1 entre os indicadores válidos, na escala percentual 0–100 | Casos sintéticos, conferência independente DAD-03B e testes HTTP da DAD-04 oficial; frações exatas até a saída | O uso do conjunto S depende de homologação semântica. |
+| Média dos índices individuais das comparadoras e diferença índice escolar menos referência | Rota experimental histórica e rota oficial HTTP controlada; pacote DAD-03B concordante em 4/4 anos sob a mesma população comprovada | População elegível e exclusões permanecem decisões metodológicas; PostgreSQL real não foi testado. |
+| Exclusão da escola selecionada da própria referência | Implementada e exercitada nos cenários sintéticos e na rota oficial HTTP controlada | Não há evidência de aprovação expressa separada pelo professor; requer confirmação formal. |
+| NULL distinto de zero; valores ausentes não entram no denominador de uma fração parcial | Coberto por exemplos e testes da rota oficial HTTP controlada, sem corte mínimo | O significado de ausência e eventual não aplicabilidade na fonte não foi homologado. |
 | N=0 sem referência/diferença numéricas; N=1 com cálculo matematicamente definido | Comportamentos exercitados nos testes | Aviso, supressão ou apresentação de N=1 ainda requer decisão. |
 | Bloqueio de cálculo afetado por valor inválido ou duplicidade; sinalização e preservação de evidência | Testes sintéticos e validação local do exportador DAD-03B | Política final de resolução e extensão do bloqueio requer aprovação formal. |
-| Município associado à observação do próprio ano e alerta para variação territorial | Implementado/exercitado na rota experimental da DAD-04 | Disposição das divergências reais identificadas na DAD-01 continua pendente. |
-| Precisão exata, sem arredondamento intermediário; diferença em pontos percentuais | Conferência matemática independente reportada na DAD-03B e conciliação experimental da DAD-04 | Resultado restrito ao experimento; o domínio compartilhado arredonda durante o cálculo e requer alinhamento com BE-05, além de decisão sobre formato final. |
+| Município histórico na seleção dos pares; alerta territorial experimental | Seleção pelo município da observação anual exercitada na rota oficial HTTP controlada, com consulta dos pares conferida por município/ano; o alerta de variação territorial pertence à API experimental documentada na [DAD-04 de referência](DAD-04_CONCILIACAO_API_REFERENCIA.md). | Alerta público de variação territorial não demonstrado no schema oficial; disposição das divergências reais da DAD-01 pendente. |
+| Precisão exata, sem arredondamento intermediário; diferença em pontos percentuais | Correção da PR #9 e oráculo independente da DAD-04 oficial, incluindo casos sensíveis ao arredondamento | Percentuais públicos têm duas casas; apresentação final e PostgreSQL real permanecem fora dessa validação. |
 | Estado experimental não homologado e bloqueio de alegação de publicação oficial | Presente na rota/status e nos relatórios DAD-03B/DAD-04 | Publicação depende de homologação metodológica e documental. |
 
 ### 10.3 Pendente de aprovação formal: regras e perguntas para apreciação
@@ -274,7 +274,7 @@ Esta tabela descreve o acordo informado e o código/schema disponível, não uma
 | N=0 e N=1 | N=0 produz referência indisponível; N=1 é calculável e foi exercitado | Com N=0, deve-se apenas informar indisponibilidade? Com N=1, apresentar com aviso, suprimir ou aplicar outra regra? |
 | Duplicidades e valores inválidos | Bloqueio fail-closed implementado nos cenários cobertos | Todo inválido ou duplicidade em potencial comparadora deve bloquear a referência municipal/ano até resolução? Quais resoluções documentadas serão permitidas? |
 | Mudanças territoriais entre anos | Código anual preservado e alerta experimental | Deve prevalecer o código municipal registrado em cada observação anual? Qual decisão se aplica às divergências específicas da DAD-01? |
-| Precisão, arredondamento e apresentação | Princípio matemático de precisão intermediária; domínio local arredonda índice, média, diferença e coberturas a duas casas | A BE-05 exige precisão intermediária integral? Como alinhar BE-07/BE-08 e definir o arredondamento exclusivo da apresentação? |
+| Precisão, arredondamento e apresentação | Precisão intermediária corrigida na PR #9 e exercitada pela DAD-04 oficial; percentuais públicos com duas casas | Como apresentar arredondamento, cobertura e avisos segundo REQ-02/REQ-04? Há aprovação metodológica expressa dessa apresentação? |
 | Condições para homologação e publicação | S e regras complementares sem homologação; publicação oficial não autorizada | Quais decisões documentais e metodológicas são gates obrigatórios para homologar S, aprovar a DAD-05 e autorizar publicação? |
 
 O professor esclareceu em 13/10/2026 que ele próprio ou a equipe do projeto pode homologar os indicadores após apresentação e revisão. Essa atribuição identifica os responsáveis aptos a decidir; não é homologação automática, não aprova todas as regras deste contrato e não autoriza publicação.
@@ -305,42 +305,44 @@ Critérios para considerar a DAD-05 metodologicamente encerrada:
 - o conjunto S e sua comparabilidade foram formalmente deliberados;
 - população de referência, cobertura/elegibilidade e exclusões estão definidas;
 - NULL, não aplicabilidade, N=0/N=1, duplicidades, inválidos e variação territorial têm política aprovada;
-- precisão intermediária e apresentação foram alinhadas com BE-05/BE-07/BE-08 e aprovadas, com a diferença frente ao domínio atual resolvida ou documentada;
+- precisão intermediária já implementada foi distinguida da decisão pendente sobre apresentação e avisos, com aceite expresso dos responsáveis para esta última;
 - bloqueios da DAD-01 foram resolvidos ou aceitos formalmente com limitações e escopo explícitos;
 - a decisão final tem responsável, data e escopo registrados.
 
-As DAD-03A, DAD-03B e DAD-04 podem ser referenciadas como evidência técnica nos cenários exercitados. Isso não substitui os critérios acima nem exige repetir suas validações nesta atualização.
+As DAD-03A/B e as duas conciliações DAD-04 podem ser referenciadas como evidência técnica nos respectivos cenários. Isso não substitui os critérios acima nem demonstra integração SQL/PostgreSQL da rota oficial.
 
 ## 12. Parecer técnico atualizado
 
 **DAD-05: CONTRATO METODOLÓGICO CONDICIONAL — NÃO HOMOLOGADO.**
 
-O princípio de utilizar média aritmética na comparação Escola × Município foi aprovado expressamente pelo professor orientador em 13/10/2026. O MVP acordado usa o índice individual na escala percentual com indicadores válidos, sem corte mínimo, e a média dos índices das demais escolas do mesmo município e ano, excluindo a escola consultada. A diferença é expressa em pontos percentuais. A precisão intermediária ainda exige alinhamento: o domínio local arredonda a duas casas durante o cálculo, enquanto o experimento anterior preservava frações exatas.
+O princípio de utilizar média aritmética na comparação Escola × Município foi aprovado expressamente pelo professor orientador em 13/10/2026. O MVP operacional usa o índice individual na escala percentual com indicadores válidos, sem corte mínimo, e a média dos índices das demais escolas do mesmo município e ano, excluindo a escola consultada. A diferença é expressa em pontos percentuais. O domínio vigente preserva frações exatas nos cálculos intermediários e arredonda os percentuais públicos a duas casas; essa implementação técnica não amplia a aprovação metodológica do professor.
 
-A implementação experimental e as validações das DAD-03A, DAD-03B e DAD-04 demonstram comportamento nos casos sintéticos e no escopo empírico reportado. Elas não validam a rota oficial BE-05, a regra do MVP sem corte mínimo, o tratamento definitivo de não aplicabilidade, a política territorial ou a apresentação final. A conciliação oficial precisa ser repetida após BE-07/BE-08.
+As DAD-03A/B e a DAD-04 de referência preservam os resultados históricos sintéticos e empíricos exploratórios. A DAD-04 oficial, integrada pela PR #12 após BE-07/BE-08, validou a rota HTTP com repositório controlado: 10 testes aprovados, 4/4 anos do pacote DAD-03B concordantes sob população comprovadamente comparável e hashes 10/10. Ela exercitou o MVP sem corte mínimo, mas não o SQL/PostgreSQL real, a semântica de não aplicabilidade, a disposição territorial ou a apresentação final.
 
-A homologação semântica de S, as decisões complementares listadas neste contrato e a autorização de publicação permanecem pendentes. DAD-01 continua **NÃO HOMOLOGADA**; DAD-02 permanece preliminar; DAD-03A, DAD-03B e DAD-04 continuam concluídas no escopo técnico exploratório, sem reabertura nesta atualização. Nenhum resultado é declarado oficial.
+A homologação semântica de S, as decisões complementares listadas neste contrato e a autorização de publicação permanecem pendentes. DAD-01 continua **NÃO HOMOLOGADA**; DAD-02 permanece preliminar; DAD-03A/B estão encerradas em seus escopos exploratórios e DAD-04 está concluída no escopo HTTP controlado da rota oficial. Nenhum resultado é declarado indicador oficial.
 
 ## 13. Continuidade do projeto e estado das cinco DADs
 
 | DAD | Estado registrado | Pendência para avanço/encerramento |
 |---|---|---|
-| DAD-01 | **Parecer emitido; NÃO HOMOLOGADA** | Revisão/decisão formal; aceite ou evidência adicional para ETL e nulos; regra e decisões territoriais; critério operacional do recorte de 22 municípios. |
-| DAD-02 | **Matriz preliminar; 68 verificações documentais registradas** | Deliberação semântica formal sobre o conjunto S; avaliar material adicional somente se surgir lacuna interpretativa concreta. |
+| DAD-01 | **Parecer emitido; atividade Done; NÃO HOMOLOGADA** | Revisão/decisão formal; aceite ou evidência adicional para ETL e nulos; regra e decisões territoriais; critério operacional do recorte de 22 municípios. |
+| DAD-02 | **Matriz preliminar; 68 verificações documentais; Ready for Test no último quadro** | Deliberação semântica formal sobre o conjunto S; avaliar material adicional somente se surgir lacuna interpretativa concreta. |
 | DAD-03A | Concluída no escopo sintético e de planejamento | Nenhuma reabertura proposta. |
 | DAD-03B | Validação empírica exploratória concluída | Não confundir resultados exploratórios com homologação semântica ou publicação oficial. |
-| DAD-04 | Concluída — validação técnica exploratória da rota antiga | Repetir a conciliação na rota oficial após BE-07/BE-08; a falha histórica da suíte completa permanece registrada. |
-| DAD-05 | **Contrato metodológico condicional; decisão final pendente** | Resolver e registrar as decisões da seção 10.3 e os critérios desta seção. |
+| DAD-04 | **Conciliação oficial integrada na PR #12; Done** | Integração da rota com SQL/PostgreSQL real e snapshot comparável pendente; a falha preexistente de Conectividade na suíte completa permanece registrada. |
+| DAD-05 | **Contrato metodológico condicional; Ready for Test no último export, sem Sprint 3 atribuída** | Resolver e registrar as decisões da seção 10.3 e os critérios desta seção. |
 
-A conclusão geral das cinco DADs requer deliberações documentadas para DAD-01, DAD-02/S e DAD-05. As DAD-03A, DAD-03B e DAD-04 permanecem encerradas no escopo atribuído. O desenvolvimento/publicação posterior depende dos gates expressamente aprovados; este parecer não inicia backend nem DAD-04.
+A entrega documental das cinco DADs não equivale à homologação conjunta. DAD-01 mantém o parecer NÃO HOMOLOGADA; DAD-02/S e DAD-05 requerem deliberações documentadas. DAD-03A/B e DAD-04 permanecem encerradas nos escopos técnicos atribuídos. A publicação posterior depende de autorização expressa.
 ## Referências locais
 
 - [DAD-01 — Auditoria e homologação](DAD-01_AUDITORIA_E_HOMOLOGACAO.md): resultados Q1–Q8 reportados, qualidade, ausências, riscos da API, território, limites de rastreabilidade e parecer não homologado.
 - [DAD-02 — Matriz de comparabilidade temporal](DAD-02_MATRIZ_COMPARABILIDADE_TEMPORAL.md): matriz preliminar 17 × 4, classificações técnicas, limitações semânticas e questões de população temporal.
+- [DAD-04 — Conciliação da API oficial](DAD-04_CONCILIACAO_API_OFICIAL.md): execução HTTP controlada e limitação PostgreSQL.
+- [BE-08 — Integração com o frontend](../BE-08-INTEGRACAO-FRONTEND.md): rota, série e erros documentados para consumo.
 - `evidencias/LEIA-ME.md`: escopo e natureza reportada das evidências; arquivo histórico ausente deste checkout e excluído da PR.
 - `evidencias/02_EVIDENCIAS_Q5_Q8_SQL.txt`: matriz quantitativa, denominadores, cobertura e integridade territorial reportados; arquivo histórico ausente deste checkout e não reexecutado nesta revisão.
 - `evidencias/03_INVESTIGACAO_DOCUMENTAL_TERRITORIAL.txt`: limitações de acesso às fontes oficiais e achados complementares herdados; arquivo histórico ausente deste checkout.
 
 ## Controle de escopo
 
-O registro anterior incorporou o esclarecimento do professor de 13/10/2026. Esta revisão alinhou a regra técnica do MVP, distinguiu os exemplos históricos do contrato vigente e registrou pendências HTTP e de precisão. Não houve SQL, processamento de microdados, alteração de banco, código, frontend ou testes; nenhum commit ou push foi realizado.
+O registro anterior incorporou o esclarecimento do professor de 13/10/2026. A versão 0.4 corrige apenas o estado factual da implementação e das verificações após as PRs #9–#12, preservando as decisões metodológicas pendentes. Esta revisão documental não executou SQL ou microdados nem alterou banco, código, frontend ou testes.

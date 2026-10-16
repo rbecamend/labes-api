@@ -4,6 +4,8 @@
 **Recorte reportado:** 2022–2025  
 **Natureza:** validação empírica exploratória concluída; não constitui homologação semântica nem autorização de publicação.
 
+> **Atualização transversal (16/10/2026):** esta DAD-03B não testou a API. A [DAD-04 oficial](DAD-04_CONCILIACAO_API_OFICIAL.md), integrada pela [PR #12](https://github.com/rbecamend/labes-api/pull/12), conciliou depois a rota HTTP com repositório controlado; PostgreSQL real permanece pendente. As evidências empíricas abaixo não foram reescritas.
+
 ## 1. Objetivo e escopo
 
 Registrar a seleção determinística, as populações anuais, os diagnósticos territoriais e os resultados da primeira execução e da extração complementar de Q1–Q4. A extração complementar foi concluída em 12/10/2026, conforme resultados fornecidos para esta consolidação. Não houve nova consulta ao banco nesta atualização documental.

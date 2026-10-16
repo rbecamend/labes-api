@@ -5,6 +5,9 @@
 **Status:** CONCLUÍDA — validação técnica com dados sintéticos; não constitui homologação metodológica nem validação empírica da API.
 
 **Leitura atual:** os casos e resultados sintéticos desta DAD-03A permanecem históricos. A DAD-03B foi concluída depois, em escopo empírico exploratório; a conciliação HTTP posterior da DAD-04 usou a rota experimental, sem validar a integração da rota oficial BE-05/BE-07/BE-08.
+
+> **Atualização transversal (16/10/2026):** a conciliação da rota oficial foi integrada depois, na [DAD-04 oficial](DAD-04_CONCILIACAO_API_OFICIAL.md) ([PR #12](https://github.com/rbecamend/labes-api/pull/12)), em escopo HTTP controlado; a integração com PostgreSQL real continua pendente. A frase acima descreve somente esta DAD-03A.
+
 **Conjunto de exemplo:** \(S^* = \{A,B,C\}\), três indicadores binários fictícios
 
 > \(S^*\) é apenas um conjunto didático de três indicadores. Não corresponde ao conjunto definitivo \(S\), não atribui nomes ou semântica oficial aos campos e não homologa nenhum indicador. Todos os anos, municípios, escolas e valores abaixo são fictícios. A DAD-01 permanece **NÃO HOMOLOGADA documentalmente**, a DAD-02 permanece preliminar, o conjunto \(S\) não está homologado e resultados definitivos não estão autorizados.

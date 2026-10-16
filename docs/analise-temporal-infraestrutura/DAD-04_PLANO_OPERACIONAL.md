@@ -4,6 +4,8 @@
 
 **Leitura atual:** “EM EXECUÇÃO” descreve a data deste plano. O relatório [DAD-04 — Conciliação](DAD-04_CONCILIACAO_API_REFERENCIA.md) registra a conclusão exploratória posterior com a rota experimental `/infraestrutura/analise-temporal/escola-municipio`. Essa rota e a PR #44 não integram o contrato vigente. A conciliação da rota oficial `GET /infraestrutura/analise-temporal/escolas/{co_entidade}/comparacao-municipio` deverá ser repetida após BE-07/BE-08; os passos abaixo são protocolo histórico sob cobertura experimental 17/17.
 
+> **Atualização transversal (16/10/2026):** a [conciliação da rota oficial](DAD-04_CONCILIACAO_API_OFICIAL.md) foi integrada na [PR #12](https://github.com/rbecamend/labes-api/pull/12), em escopo HTTP controlado. A etapa com PostgreSQL real permanece pendente; o plano abaixo conserva seus critérios históricos.
+
 ## 1. Objetivo e decisão inicial
 
 Confrontar um endpoint **real** do backend FastAPI com os casos sintéticos DAD-03A e a amostra exploratória DAD-03B, usando a resposta HTTP efetiva (ASGI/HTTPX ou Uvicorn) — não chamar somente a função de cálculo como substituto da DAD-04. O backend local (branch `develop`) já possui `GET /infraestrutura/analise-temporal`, porém não está demonstrado que implemente a comparação **Escola × média das demais escolas do município**. Verificar primeiro código, serviço, repositório, schemas, documentação OpenAPI e comportamento; não inferir equivalência pelo nome.
