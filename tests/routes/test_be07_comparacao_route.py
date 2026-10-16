@@ -1,6 +1,6 @@
 import pytest
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.dependencies import get_infraestrutura_service
@@ -74,28 +74,45 @@ class _Servico:
         return self.resposta
 
 
-def _cliente(servico: _Servico) -> TestClient:
+def _aplicacao(servico: _Servico) -> FastAPI:
     app = FastAPI()
     app.add_exception_handler(AppError, app_error_handler)
     app.include_router(router)
-    app.dependency_overrides[get_infraestrutura_service] = lambda: servico
-    return TestClient(app, raise_server_exceptions=False)
+
+    async def substituir_servico():
+        return servico
+
+    app.dependency_overrides[get_infraestrutura_service] = substituir_servico
+    return app
 
 
-def test_rota_retorna_contrato_v2_e_chama_servico():
+async def _get(servico: _Servico, caminho: str):
+    transport = ASGITransport(
+        app=_aplicacao(servico),
+        raise_app_exceptions=False,
+    )
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+    ) as cliente:
+        return await cliente.get(caminho)
+
+
+async def test_rota_retorna_contrato_v2_e_chama_servico():
     servico = _Servico(resposta=_resposta_valida())
 
-    resposta = _cliente(servico).get(ROTA)
+    resposta = await _get(servico, ROTA)
 
     assert resposta.status_code == 200
     assert resposta.json()["data"]["metodologia"]["total_indicadores"] == 17
     assert servico.chamadas == [15012345]
 
 
-def test_rota_rejeita_codigo_inep_sem_oito_digitos():
+async def test_rota_rejeita_codigo_inep_sem_oito_digitos():
     servico = _Servico(resposta=_resposta_valida())
 
-    resposta = _cliente(servico).get(
+    resposta = await _get(
+        servico,
         "/infraestrutura/analise-temporal/escolas/123/comparacao-municipio"
     )
 
@@ -111,18 +128,20 @@ def test_rota_rejeita_codigo_inep_sem_oito_digitos():
         (RuntimeError("falha inesperada"), 500, "internal_error"),
     ],
 )
-def test_rota_mapeia_erros_controlados(erro, status_code, code):
-    resposta = _cliente(_Servico(erro=erro)).get(ROTA)
+async def test_rota_mapeia_erros_controlados(erro, status_code, code):
+    resposta = await _get(_Servico(erro=erro), ROTA)
 
     assert resposta.status_code == status_code
     assert resposta.json()["code"] == code
     assert set(resposta.json()) == {"code", "message"}
 
 
-def test_openapi_documenta_resposta_e_erros_da_rota():
-    cliente = _cliente(_Servico(resposta=_resposta_valida()))
-
-    operacao = cliente.get("/openapi.json").json()["paths"][ROTA.replace(
+async def test_openapi_documenta_resposta_e_erros_da_rota():
+    resposta = await _get(
+        _Servico(resposta=_resposta_valida()),
+        "/openapi.json",
+    )
+    operacao = resposta.json()["paths"][ROTA.replace(
         "15012345", "{co_entidade}"
     )]["get"]
 
