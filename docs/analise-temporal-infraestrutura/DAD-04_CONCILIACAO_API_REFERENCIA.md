@@ -6,6 +6,8 @@
 
 **Destino da implementação:** os resultados abaixo documentam a experiência da PR #44 (`LABES-SI/labes-api`), que não deve ser incorporada ao backend compartilhado. A conciliação deverá ser repetida após a implementação oficial da BE-07, com a integração BE-08 e o contrato HTTP BE-05.
 
+> **Atualização transversal (16/10/2026):** a repetição técnica ocorreu na [DAD-04 da API oficial](DAD-04_CONCILIACAO_API_OFICIAL.md), integrada pela [PR #12](https://github.com/rbecamend/labes-api/pull/12): 10 testes HTTP controlados aprovados e 4/4 anos do pacote DAD-03B concordantes. A validação SQL/PostgreSQL real permanece pendente. As afirmações temporais abaixo pertencem ao experimento original.
+
 ## 1. Objetivo e resultado da descoberta
 
 A rota preexistente `GET /infraestrutura/analise-temporal` **não atende** à comparação Escola × Município. Em `app/routes/infraestrutura.py`, ela recebe `metrica` e `pibid` e chama `build_analise_temporal`; em `app/services/infraestrutura_service.py`, o serviço cria gráficos por localização e dependência. O caminho não recebe escola/município/ano como comparação, não exclui a selecionada de uma referência municipal e não calcula média não ponderada dos índices das demais escolas.

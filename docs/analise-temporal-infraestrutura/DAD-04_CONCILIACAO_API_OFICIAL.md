@@ -5,6 +5,8 @@
 - **Branch e commit de referência:** `feature/SIE-47-dad04-official`, `7c43848d6c609c09a69d42e1162879c81d9ae68c`
 - **Endpoint:** `GET /infraestrutura/analise-temporal/escolas/{co_entidade}/comparacao-municipio`
 
+> **Atualização de integração (16/10/2026):** este relatório entrou na branch compartilhada pela [PR #12](https://github.com/rbecamend/labes-api/pull/12), após a integração da documentação histórica pela [PR #7](https://github.com/rbecamend/labes-api/pull/7). As referências abaixo ao estado anterior da branch descrevem o momento da execução.
+
 ## 1. Escopo e distinção histórica
 
 Este relatório registra a conciliação complementar da **API oficial** integrada pelas PRs #9, #10 e #11. O commit `7c43848` contém os três merges. O trabalho não alterou o backend, o contrato HTTP, o frontend, a rota experimental ou o PostgreSQL.
