@@ -145,6 +145,10 @@ def test_comparacao_calcula_media_com_pesos_iguais_e_exclui_escola_consultada():
 
     assert resultado.situacao == "disponivel"
     assert resultado.indice_escola_percentual == 66.67
+    assert resultado.quantidade_indicadores_presentes == 2
+    assert resultado.quantidade_indicadores_validos == 3
+    assert resultado.total_indicadores == 4
+    assert resultado.cobertura_indicadores_percentual == 75.0
     assert resultado.media_municipal_percentual == 50.0
     assert resultado.diferenca_pontos_percentuais == 16.67
     assert resultado.quantidade_pares_validos == 2
@@ -199,6 +203,10 @@ def test_escola_sem_dados_tem_precedencia_sobre_ausencia_de_pares():
 
     assert resultado.situacao == "escola_sem_dados"
     assert resultado.indice_escola_percentual is None
+    assert resultado.quantidade_indicadores_presentes == 0
+    assert resultado.quantidade_indicadores_validos == 0
+    assert resultado.total_indicadores == 4
+    assert resultado.cobertura_indicadores_percentual == 0.0
     assert resultado.cobertura_pares_percentual is None
 
 

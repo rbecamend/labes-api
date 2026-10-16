@@ -157,6 +157,10 @@ class ComparacaoInfraestruturaAno:
     ano: int
     situacao: SituacaoComparacaoInfraestrutura
     indice_escola_percentual: float | None
+    quantidade_indicadores_presentes: int
+    quantidade_indicadores_validos: int
+    total_indicadores: int
+    cobertura_indicadores_percentual: float | None
     media_municipal_percentual: float | None
     diferenca_pontos_percentuais: float | None
     quantidade_pares_validos: int
@@ -298,6 +302,12 @@ def calcular_comparacao_infraestrutura_ano(
         ano=escola.nu_ano_censo,
         situacao=situacao,
         indice_escola_percentual=indice_escola.percentual,
+        quantidade_indicadores_presentes=indice_escola.presentes,
+        quantidade_indicadores_validos=indice_escola.validos,
+        total_indicadores=indice_escola.total_indicadores,
+        cobertura_indicadores_percentual=(
+            indice_escola.cobertura_indicadores_percentual
+        ),
         media_municipal_percentual=media_municipal,
         diferenca_pontos_percentuais=diferenca,
         quantidade_pares_validos=quantidade_pares_validos,
