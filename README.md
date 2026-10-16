@@ -6,6 +6,7 @@ API do observatório de dados, construída com **FastAPI** seguindo a arquitetur
 
 - [Arquitetura](docs/ARCHITECTURE.md) — estrutura de camadas, responsabilidades, fluxo de requisição e exemplos de código
 - [Branches](docs/BRANCHING.md) — convenções de branches e fluxo de trabalho com Git
+- [Integração Escola × Município](docs/BE-08-INTEGRACAO-FRONTEND.md) — rota, exemplo JSON, erros e configuração do frontend
 
 ## Estrutura do projeto
 
