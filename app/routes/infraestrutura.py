@@ -1,10 +1,15 @@
+import logging
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Path, Query
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.dependencies import get_infraestrutura_service
+from app.core.exceptions import AppError, WarehouseUnavailableError
 from app.schemas.infraestrutura import (
     AnaliseTemporalResponse,
+    ComparacaoInfraestruturaResponse,
+    ErroComparacaoInfraestruturaResponse,
     MapaResponse,
     PainelEscolasResponse,
     PainelResponse,
@@ -12,6 +17,7 @@ from app.schemas.infraestrutura import (
 from app.services.infraestrutura_service import InfraestruturaService
 
 router = APIRouter(prefix="/infraestrutura", tags=["infraestrutura"])
+logger = logging.getLogger(__name__)
 
 
 # As 17 métricas curadas do notebook (cell-1). Usadas em /painel, /painel/escolas,
@@ -211,3 +217,51 @@ async def get_analise_temporal_infraestrutura(
     dos anos censo."""
     envelope = await service.build_analise_temporal(metrica=metrica, pibid=pibid)
     return AnaliseTemporalResponse(**envelope)
+
+
+@router.get(
+    "/analise-temporal/escolas/{co_entidade}/comparacao-municipio",
+    response_model=ComparacaoInfraestruturaResponse,
+    responses={
+        404: {
+            "model": ErroComparacaoInfraestruturaResponse,
+            "description": "Escola não encontrada.",
+        },
+        500: {
+            "model": ErroComparacaoInfraestruturaResponse,
+            "description": "Falha interna inesperada.",
+        },
+        503: {
+            "model": ErroComparacaoInfraestruturaResponse,
+            "description": "Warehouse indisponível.",
+        },
+    },
+    summary="Compara a infraestrutura da escola com seu município",
+)
+async def get_comparacao_infraestrutura_municipio(
+    co_entidade: int = Path(
+        ...,
+        ge=10_000_000,
+        le=99_999_999,
+        description="Código INEP da escola, com oito dígitos.",
+    ),
+    service: InfraestruturaService = Depends(get_infraestrutura_service),
+) -> ComparacaoInfraestruturaResponse:
+    """Retorna a série fixa 2022–2025 da comparação Escola × Município."""
+    try:
+        envelope = await service.build_comparacao_municipio(
+            co_entidade=co_entidade
+        )
+        return ComparacaoInfraestruturaResponse.model_validate(envelope)
+    except AppError:
+        raise
+    except SQLAlchemyError as exc:
+        logger.exception("Warehouse indisponível na comparação de infraestrutura")
+        raise WarehouseUnavailableError(
+            "Não foi possível consultar os dados de infraestrutura."
+        ) from exc
+    except Exception as exc:
+        logger.exception("Falha interna na comparação de infraestrutura")
+        raise AppError(
+            "Não foi possível processar a comparação de infraestrutura."
+        ) from exc
