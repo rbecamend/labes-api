@@ -1,3 +1,4 @@
+from fractions import Fraction
 from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -259,6 +260,100 @@ class PontoComparacaoInfraestrutura(_ContratoComparacaoInfraestrutura):
             raise ValueError(
                 "Pares válidos não podem superar o denominador de pares."
             )
+
+        cobertura_indicadores_esperada = float(
+            round(
+                Fraction(
+                    100 * self.quantidade_indicadores_validos,
+                    self.total_indicadores,
+                ),
+                2,
+            )
+        )
+        if self.cobertura_indicadores_percentual != cobertura_indicadores_esperada:
+            raise ValueError("Cobertura dos indicadores não corresponde às contagens.")
+
+        if (
+            self.quantidade_indicadores_validos == 0
+            and self.indice_escola_percentual is not None
+        ):
+            raise ValueError(
+                "Índice da escola deve ser nulo sem indicadores válidos."
+            )
+        elif self.quantidade_indicadores_validos > 0:
+            indice_esperado = float(
+                round(
+                    Fraction(
+                        100 * self.quantidade_indicadores_presentes,
+                        self.quantidade_indicadores_validos,
+                    ),
+                    2,
+                )
+            )
+            if self.indice_escola_percentual != indice_esperado:
+                raise ValueError("Índice da escola não corresponde às contagens.")
+
+        if (
+            self.denominador_pares == 0
+            and self.cobertura_pares_percentual is not None
+        ):
+            raise ValueError("Cobertura dos pares deve ser nula sem pares.")
+        elif self.denominador_pares > 0:
+            cobertura_esperada = float(
+                round(
+                    Fraction(
+                        100 * self.quantidade_pares_validos,
+                        self.denominador_pares,
+                    ),
+                    2,
+                )
+            )
+            if self.cobertura_pares_percentual != cobertura_esperada:
+                raise ValueError("Cobertura dos pares não corresponde às contagens.")
+
+        if (self.media_municipal_percentual is None) != (
+            self.quantidade_pares_validos == 0
+        ):
+            raise ValueError("Média municipal deve refletir os pares válidos.")
+
+        if self.situacao == "disponivel":
+            if (
+                self.indice_escola_percentual is None
+                or self.media_municipal_percentual is None
+                or self.diferenca_pontos_percentuais is None
+                or self.quantidade_pares_validos == 0
+                or self.denominador_pares == 0
+            ):
+                raise ValueError("Situação disponivel exige índice e comparação.")
+        elif self.situacao == "escola_sem_dados":
+            if (
+                self.indice_escola_percentual is not None
+                or self.diferenca_pontos_percentuais is not None
+            ):
+                raise ValueError(
+                    "Situação escola_sem_dados exige índice e diferença nulos."
+                )
+        elif self.situacao == "sem_pares_validos":
+            if (
+                self.indice_escola_percentual is None
+                or self.denominador_pares == 0
+                or self.quantidade_pares_validos != 0
+                or self.media_municipal_percentual is not None
+                or self.diferenca_pontos_percentuais is not None
+            ):
+                raise ValueError(
+                    "Situação sem_pares_validos exige escola e pares sem índice."
+                )
+        elif self.situacao == "sem_pares_municipio" and (
+                self.indice_escola_percentual is None
+                or self.denominador_pares != 0
+                or self.quantidade_pares_validos != 0
+                or self.media_municipal_percentual is not None
+                or self.diferenca_pontos_percentuais is not None
+            ):
+                raise ValueError(
+                    "Situação sem_pares_municipio exige ausência de pares."
+                )
         return self
 
 
