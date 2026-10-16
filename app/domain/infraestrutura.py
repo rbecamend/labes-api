@@ -1,5 +1,6 @@
 from collections.abc import Collection, Iterable
 from dataclasses import dataclass
+from fractions import Fraction
 from typing import Literal
 
 # TotalEscolas é genérico (apenas um inteiro) — reaproveitado de acessibilidade
@@ -175,6 +176,18 @@ def _validar_cobertura_minima(cobertura_minima_percentual: float | None) -> None
         raise ValueError("A cobertura mínima deve estar entre 0 e 100.")
 
 
+def _percentual_arredondado(proporcao: Fraction) -> float:
+    """Arredonda uma proporção exata apenas ao produzir o percentual público."""
+    return float(round(100 * proporcao, 2))
+
+
+def _indice_exato(indice: IndiceInfraestrutura) -> Fraction | None:
+    """Reusa elegibilidade e contagens do índice, sem arredondamento intermediário."""
+    if indice.percentual is None:
+        return None
+    return Fraction(indice.presentes, indice.validos)
+
+
 def calcular_indice_infraestrutura(
     indicadores: dict[str, int | None],
     *,
@@ -208,7 +221,7 @@ def calcular_indice_infraestrutura(
     validos = sum(valor is not None for valor in valores)
     presentes = sum(valor == 1 for valor in valores)
     cobertura = (
-        round(100 * validos / total_indicadores, 2)
+        _percentual_arredondado(Fraction(validos, total_indicadores))
         if total_indicadores
         else None
     )
@@ -219,7 +232,7 @@ def calcular_indice_infraestrutura(
         or (cobertura is not None and cobertura >= cobertura_minima_percentual)
     )
     if validos and atende_cobertura:
-        percentual = round(100 * presentes / validos, 2)
+        percentual = _percentual_arredondado(Fraction(presentes, validos))
 
     return IndiceInfraestrutura(
         percentual=percentual,
@@ -248,6 +261,7 @@ def calcular_comparacao_infraestrutura_ano(
         indicadores_esperados=indicadores_esperados,
         cobertura_minima_percentual=cobertura_minima_percentual,
     )
+    indice_escola_exato = _indice_exato(indice_escola)
 
     pares = [
         registro
@@ -261,11 +275,13 @@ def calcular_comparacao_infraestrutura_ano(
         raise ValueError("Há escolas de referência duplicadas para o mesmo ano.")
 
     indices_pares = [
-        calcular_indice_infraestrutura(
-            registro.indicadores,
-            indicadores_esperados=indicadores_esperados,
-            cobertura_minima_percentual=cobertura_minima_percentual,
-        ).percentual
+        _indice_exato(
+            calcular_indice_infraestrutura(
+                registro.indicadores,
+                indicadores_esperados=indicadores_esperados,
+                cobertura_minima_percentual=cobertura_minima_percentual,
+            )
+        )
         for registro in pares
     ]
     indices_validos = [indice for indice in indices_pares if indice is not None]
@@ -273,13 +289,20 @@ def calcular_comparacao_infraestrutura_ano(
     denominador_pares = len(pares)
     quantidade_pares_validos = len(indices_validos)
     cobertura_pares = (
-        round(100 * quantidade_pares_validos / denominador_pares, 2)
+        _percentual_arredondado(
+            Fraction(quantidade_pares_validos, denominador_pares)
+        )
         if denominador_pares
         else None
     )
-    media_municipal = (
-        round(sum(indices_validos) / quantidade_pares_validos, 2)
+    media_municipal_exata = (
+        sum(indices_validos, Fraction()) / quantidade_pares_validos
         if quantidade_pares_validos
+        else None
+    )
+    media_municipal = (
+        _percentual_arredondado(media_municipal_exata)
+        if media_municipal_exata is not None
         else None
     )
 
@@ -293,8 +316,8 @@ def calcular_comparacao_infraestrutura_ano(
         situacao = "disponivel"
 
     diferenca = (
-        round(indice_escola.percentual - media_municipal, 2)
-        if indice_escola.percentual is not None and media_municipal is not None
+        _percentual_arredondado(indice_escola_exato - media_municipal_exata)
+        if indice_escola_exato is not None and media_municipal_exata is not None
         else None
     )
 

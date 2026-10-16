@@ -156,6 +156,34 @@ def test_comparacao_calcula_media_com_pesos_iguais_e_exclui_escola_consultada():
     assert resultado.cobertura_pares_percentual == 100.0
 
 
+def test_comparacao_arredonda_diferenca_somente_apos_subtrair_indices_exatos():
+    escola = _registro(1, dict(zip(INDICADORES, (1, 1, 0, None))))
+    par = _registro(2, dict(zip(INDICADORES, (1, 0, 0, None))))
+
+    resultado = calcular_comparacao_infraestrutura_ano(
+        escola, [par], indicadores_esperados=INDICADORES
+    )
+
+    assert resultado.indice_escola_percentual == 66.67
+    assert resultado.media_municipal_percentual == 33.33
+    assert resultado.diferenca_pontos_percentuais == 33.33
+
+
+def test_comparacao_calcula_media_com_indices_exatos_antes_de_arredondar():
+    escola = _registro(1, {chave: 0 for chave in INDICADORES})
+    pares = [
+        _registro(2, {chave: 0 for chave in INDICADORES}),
+        _registro(3, dict(zip(INDICADORES, (1, 1, 0, None)))),
+    ]
+
+    resultado = calcular_comparacao_infraestrutura_ano(
+        escola, pares, indicadores_esperados=INDICADORES
+    )
+
+    assert resultado.media_municipal_percentual == 33.33
+    assert resultado.diferenca_pontos_percentuais == -33.33
+
+
 def test_comparacao_distingue_pares_existentes_sem_indice_valido():
     escola = _registro(1, {chave: 1 for chave in INDICADORES})
     referencias = [
