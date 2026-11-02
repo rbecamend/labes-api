@@ -1,15 +1,15 @@
 # DAD06 — Relatório técnico de consolidação da auditoria
 
 **Atividade:** Sprint 4 do SIE v2, comparação temporal de infraestrutura Escola × Município.
-**Estado:** consolidação documental para revisão; auditoria empírica reportada, sem homologação metodológica.
-**Autor da entrega documental:** Filipe Braga, sujeito à confirmação na revisão.
-**Revisão e aprovação:** pendentes de registro pela equipe responsável.
+**Estado:** consolidação documental revisada tecnicamente; auditoria empírica reportada, sem homologação metodológica.
+**Autor da entrega documental:** Filipe Braga de Menezes.
+**Revisão e aprovação:** Rebeca Mendonça, revisão técnica documental em 02/11/2026. A aprovação metodológica permanece pendente.
 **Worktree/branch:** `labes-api-sie30-dad06` / `docs/DAD06-denominadores-indicadores`.
 **Fonte de dados declarada:** PostgreSQL 18, `silver.infraestrutura_comum`, conta `sie_auditoria`.
 
 ## 1. Objetivo e alcance do parecer
 
-Consolidar as regras dos denominadores, as execuções Q0–Q8 e Q8B informadas para 2022–2025, as reconciliações comunicadas e os limites de rastreabilidade antes da revisão final da DAD06. Este relatório não executou SQL, não acessou PostgreSQL e não substitui a homologação semântica dos indicadores ou a aprovação do limiar de cobertura.
+Consolidar as regras dos denominadores, as execuções Q0–Q8 e Q8B informadas para 2022–2025, as reconciliações comunicadas e os limites de rastreabilidade antes da revisão final da DAD06. Este relatório não executou SQL, não acessou PostgreSQL e não substitui a homologação semântica dos indicadores. O limiar informativo de 60% e seu escopo foram definidos pelo REQ05; esta auditoria avalia sua aplicação empírica, sem alterar a regra de negócio.
 
 Os quatro CSVs originais Q8B foram localizados em Downloads, conferidos e incorporados ao worktree. As saídas separadas Q0–Q8 continuam ausentes. Assim, **“reportado”** significa informação recebida no pedido de consolidação; **“conferido neste worktree”** significa algo verificável nos arquivos locais. A coincidência com uma tabela histórica da DAD01 é uma comparação documental, não uma segunda execução independente.
 
@@ -94,7 +94,7 @@ A mudança entre os extremos arredondados é de −3,48 pontos percentuais. É u
 - **Semântica:** DAD02 documenta consistência de dicionário dos 17 candidatos; aplicabilidade, linhagem da Silver e homologação semântica de `S` permanecem pendentes.
 - **Origem e população:** DAD01 permanece não homologada; ETL original e causa das 1.249 linhas totalmente nulas não estão demonstrados. Os 22 municípios são recorte intencional reportado, não cobertura estadual. A regra operacional de elegibilidade territorial ainda precisa de confirmação.
 - **Integridade futura:** ausência de duplicatas/inválidos no resumo atual não estabelece garantia da carga. BE09 precisa de regra pública para anomalias, grupos sem denominador válido e indicadores indisponíveis.
-- **Limiar:** REQ05 e BE09 divergem quanto ao estado de 60%; a DAD05 não o homologa. Valor, escopo e texto do alerta requerem decisão formal.
+- **Limiar:** REQ05, a wiki da Sprint 4 e a BE09 estão conciliados em `60%`, somente para a escola selecionada e sem bloqueio do resultado. A Q8B não encontrou cenário exatamente igual a 60%, que permanece pendente de teste sintético.
 - **Amostra:** manifesto da seleção manual e casos-limite além do piloto não estão comprovados localmente. Nomes e resultados de arquivos privados de outras sessões não são inferidos.
 
 ## 9. Parecer técnico e encaminhamento
@@ -102,7 +102,7 @@ A mudança entre os extremos arredondados é de −3,48 pontos percentuais. É u
 | Dimensão | Parecer |
 |---|---|
 | Auditoria empírica | **Reportada como executada e tecnicamente consistente** nos cenários descritos. Esta revisão conferiu diretamente os quatro CSVs agregados Q8B e suas fórmulas, além das somas Q0–Q3 reportadas e da fração 101/104; não acessou PostgreSQL nem auditou saídas separadas Q0–Q8. |
-| Entrega documental | **Preparada para revisão.** Método, SQLs, quatro CSVs Q8B, manifesto, resultados e lacunas estão identificados; metadados operacionais e amostra manual ainda faltam. |
-| Aprovação metodológica | **Pendente.** Conjunto dos 17 indicadores, universo territorial, tratamento público da integridade, denominador zero, limiar de 60% e autorização de publicação exigem decisão dos responsáveis. |
+| Entrega documental | **Revisada tecnicamente.** Método, SQLs, quatro CSVs Q8B, manifesto, resultados e lacunas estão identificados; metadados operacionais e amostra manual ainda faltam. |
+| Aprovação metodológica | **Pendente.** Conjunto dos 17 indicadores, universo territorial, tratamento público da integridade, denominador zero e autorização de publicação exigem decisão dos responsáveis. O limiar informativo permanece conforme REQ05 e BE09. |
 
-Recomenda-se localizar as saídas separadas Q0–Q8, registrar os metadados operacionais que puderem ser recuperados, completar a amostra manual e revisar o manifesto antes da entrega. A referência local `equipe/feature/SIE-54-sprint4-infrastructure-composition` aponta para o commit-base informado (`a41b64b`), enquanto o upstream configurado da branch individual ainda é `equipe/feature/SIE-30-school-municipality-analysis`; um PR futuro deverá indicar explicitamente o destino Sprint 4 e confirmar a referência remota atual. Esta etapa não realizou commit, push ou PR e não declara a DAD06 homologada.
+Recomenda-se localizar as saídas separadas Q0–Q8, registrar os metadados operacionais que puderem ser recuperados e completar a amostra manual. A PR 14 aponta explicitamente para `feature/SIE-54-sprint4-infrastructure-composition`, destino confirmado nesta revisão. A integração documental não declara a DAD06 homologada.

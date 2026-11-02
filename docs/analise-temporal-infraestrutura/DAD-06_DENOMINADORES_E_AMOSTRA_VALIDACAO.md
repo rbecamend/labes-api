@@ -1,11 +1,11 @@
 # DAD06 — Denominadores e amostra de validação por indicador
 
 **Funcionalidade:** análise temporal de infraestrutura Escola × Município, SIE v2, Sprint 4.
-**Estado:** auditoria empírica reportada como concluída; consolidação documental preparada para revisão, sem homologação metodológica.
-**Autor da entrega documental:** Filipe Braga, sujeito à confirmação na revisão.
-**Colaboradores:** participação ainda não registrada; não atribuída nesta versão.
-**Revisor e aprovação:** revisor nominal a designar; nenhuma revisão ou aprovação atribuída nesta versão.
-**Evidências examinadas:** implementação local em `app/domain/infraestrutura.py`, `app/repositories/infraestrutura_repository.py`, `app/services/infraestrutura_service.py` e `app/models/infraestrutura.py`; DAD01, DAD02, DAD05; matriz documental INEP; rascunho BE09 lido em `equipe/docs/BE09-contrato-composicao-detalhada` (commit `f883ca2`), sem checkout ou merge.
+**Estado:** auditoria empírica reportada como concluída; consolidação documental revisada tecnicamente, sem homologação metodológica.
+**Autor da entrega documental:** Filipe Braga de Menezes.
+**Colaboradores:** Rebeca Mendonça, revisão de coerência com REQ05 e BE09.
+**Revisor e aprovação:** Rebeca Mendonça, revisão técnica documental em 02/11/2026. A aprovação metodológica permanece pendente.
+**Evidências examinadas:** implementação local em `app/domain/infraestrutura.py`, `app/repositories/infraestrutura_repository.py`, `app/services/infraestrutura_service.py` e `app/models/infraestrutura.py`; DAD01, DAD02, DAD05; matriz documental INEP; BE09 publicada na branch `docs/BE09-contrato-composicao-detalhada`, commit `88ae947`.
 **Rastreabilidade nesta revisão:** os cinco SQLs, quatro [CSVs agregados Q8B e seu manifesto](evidencias/dad06/MANIFESTO_EVIDENCIAS_Q8B.md) estão presentes em `evidencias/dad06/`. Os CSVs originais localizados em Downloads foram conferidos e copiados sem alteração. Saídas separadas de Q0–Q8, logs, planos `EXPLAIN`, data/hora e identificador de snapshot não foram localizados. Os resultados de Q0–Q8 continuam baseados no relato da auditoria anterior; esta revisão não executou SQL nem acessou PostgreSQL.
 
 ## 1. Objetivo e escopo
@@ -130,13 +130,13 @@ O manifesto da amostra, snapshot, parâmetros, vetores de indicadores e conferê
 
 ## 9. Limiar informativo de 60% e dependências REQ05/BE09
 
-O rascunho BE09 registra conflito: o relatório REQ05 chama 60% de limiar oficial, enquanto os critérios da DAD06 e a wiki da Sprint 4 o deixam pendente de validação por Dados; a DAD05 não homologa esse valor. A BE09 propõe `limiar_alerta_cobertura_percentual=60.0`, `limiar_alerta_cobertura_status=provisorio_pendente_dad06`, alerta quando a razão exata é estritamente menor que 60%, sem bloquear o resultado. Esta DAD06 **não escolhe valor definitivo**.
+REQ05, a wiki da Sprint 4 e a revisão atual da BE09 estão alinhadas: `60%` é o limiar informativo confirmado por Requisitos para a cobertura da escola selecionada. A BE09 registra `limiar_alerta_cobertura_percentual=60.0`, `limiar_alerta_cobertura_status=confirmado_req05`, `limiar_alerta_cobertura_escopo=escola_selecionada` e alerta quando a razão exata é estritamente menor que 60%, sem bloquear o resultado. A cobertura municipal permanece informativa e não recebe classificação automática de cobertura reduzida. A DAD06 avalia a aplicação empírica e os denominadores, mas não altera a regra de negócio sem nova decisão de Requisitos.
 
-Q8 permite conferir o cenário de um alvo. Q8B produz a distribuição entre alvos elegíveis, por indicador, município e ano: total de observações, respostas válidas e ausentes, casos sem pares, denominadores de 1 a 4, mínimo, máximo e média da cobertura, e contagens abaixo, iguais e acima de 60%. Q8B subtrai a escola simulada da referência. Grupos com duplicidade, identificador nulo ou inválido em qualquer dos 17 indicadores ficam identificados e fora das faixas calculadas; a distribuição observada pode, portanto, ter cobertura limitada pela integridade da fonte. Comparar municípios e os quatro anos separadamente antes de qualquer síntese do período. A análise informa a decisão, mas não demonstra sozinha que 60% é um limite metodológico adequado. Valor, escopo, texto e responsável precisam de decisão registrada antes do fechamento da BE09.
+Q8 permite conferir o cenário de um alvo. Q8B produz a distribuição entre alvos elegíveis, por indicador, município e ano: total de observações, respostas válidas e ausentes, casos sem pares, denominadores de 1 a 4, mínimo, máximo e média da cobertura, e contagens abaixo, iguais e acima de 60%. Q8B subtrai a escola simulada da referência. Grupos com duplicidade, identificador nulo ou inválido em qualquer dos 17 indicadores ficam identificados e fora das faixas calculadas; a distribuição observada pode, portanto, ter cobertura limitada pela integridade da fonte. Comparar municípios e os quatro anos separadamente antes de qualquer síntese do período. A análise testa a aplicação da regra, mas não demonstra sozinha que 60% seja o melhor limiar metodológico. Nenhum cenário exatamente igual a 60% apareceu nos CSVs, portanto esse caso de fronteira ainda exige teste sintético.
 
 O município `1503804` apresenta as seguintes **médias de cobertura simulada conferidas nos CSVs**, arredondadas a duas casas. Foi o único município com média abaixo de 60% em cada ano; nos CSVs, os 17 indicadores de cada município compartilham a mesma cobertura média porque não houve preenchimento parcial.
 
-| Ano | Cobertura média simulada conferida de `1503804` | Relação com 60% provisórios |
+| Ano | Cobertura média simulada conferida de `1503804` | Relação com o limiar informativo de 60% |
 |---:|---:|---|
 | 2022 | 57,14% | Abaixo |
 | 2023 | 56,63% | Abaixo |
@@ -154,14 +154,14 @@ A queda de 3,48 pontos percentuais entre os valores arredondados de 2022 e 2025 
 
 As faixas somam uma observação por escola-alvo simulada **em cada um dos 17 indicadores**; não contam escolas distintas. Cada ano teve um município abaixo e 21 acima de 60% pelas médias municipais conferidas, sem cenário exatamente em 60%. O zero em `sem_pares` e `denominador_1_a_4` descreve somente o universo dos CSVs Q8B. A ausência observada desses casos não substitui a amostra manual de cenários-limite nem decide a política para denominador zero. [Manifesto e hashes](evidencias/dad06/MANIFESTO_EVIDENCIAS_Q8B.md).
 
-Conferência estática com BE09: `data.serie[].municipio_referencia` usa a linha anual; `registro_historico_disponivel` distingue lacuna de linha nula; `composicao_escola` tem 17 chaves `1/0/null`; `composicao_municipal` tem, por chave, `quantidade_presentes`, `quantidade_validos`, `quantidade_sem_dados`, `quantidade_escolas_referencia`, `percentual_presentes`, `cobertura_percentual` e `cobertura_reduzida`. As invariantes propostas são `0≤presentes≤validos`, `validos+sem_dados=escolas_referencia` e `escolas_referencia=denominador_pares`. Valor inválido ou duplicidade rompe a premissa do contrato e exige decisão de sinalização pública. O backend vigente lança `ValueError` para valor inválido ou duplicidade, enquanto a BE09 ainda não define um estado de composição para essas ocorrências; as consultas DAD06 não antecipam esse contrato. A BE09 ainda depende de decisão sobre o alerta, exemplo completo de quatro anos e revisão das equipes responsáveis; nenhum desses itens foi concluído aqui.
+Conferência estática com BE09: `data.serie[].municipio_referencia` usa a linha anual; `registro_historico_disponivel` distingue lacuna de linha nula; `composicao_escola` tem 17 chaves `1/0/null`; `composicao_municipal` tem, por chave, `quantidade_presentes`, `quantidade_validos`, `quantidade_sem_dados`, `quantidade_escolas_referencia`, `percentual_presentes` e `cobertura_percentual`. O campo `cobertura_indicadores_reduzida` classifica somente a escola selecionada. As invariantes propostas são `0≤presentes≤validos`, `validos+sem_dados=escolas_referencia` e `escolas_referencia=denominador_pares`. Valor inválido ou duplicidade rompe a premissa do contrato e exige decisão de sinalização pública. O backend vigente lança `ValueError` para valor inválido ou duplicidade, enquanto a BE09 ainda não define um estado de composição para essas ocorrências; as consultas DAD06 não antecipam esse contrato. A BE09 ainda depende do teste sintético da fronteira exata de 60%, da amostra manual ampliada, do exemplo completo de quatro anos e da revisão das equipes responsáveis.
 
 ## 10. Limitações herdadas e decisões pendentes
 
 - **DAD01:** 13.764 linhas, 12.515 completas e 1.249 integralmente nulas são resultados reportados, não reexecutados. ETL original, causa dos nulos, critério operacional do recorte intencional de 22 municípios, garantia de unicidade e divergências territoriais permanecem pendentes. DAD01: não homologada.
 - **DAD02:** 68 verificações documentais sustentam os 17 candidatos comuns; instruções operacionais, aplicabilidade, linhagem Silver e homologação semântica de `S` permanecem pendentes.
 - **DAD05:** princípio da média aritmética aprovado; população elegível, integridade, N=1, territorialidade, publicação e demais decisões complementares não foram homologadas. O MVP não usa corte mínimo de cobertura.
-- **BE09/REQ05:** resolver a divergência do alerta e confirmar comportamento público quando há integridade comprometida, sem alterar o rascunho BE09 nesta etapa.
+- **BE09/REQ05:** o limiar de 60%, o escopo da escola selecionada e o caráter não bloqueante estão conciliados. O comportamento público quando há integridade comprometida permanece pendente.
 - **Evidência da execução atual:** os SQLs e CSVs Q8B agregados estão no worktree, com hashes e reconciliação local. Faltam saídas separadas Q0–Q8, logs, datas/snapshots, parâmetros capturados e planos. A conferência dos CSVs não reexecutou SQL nem comprova a sessão de origem. Manter registros individuais fora do Git.
 - **Universo e denominadores vazios:** os CSVs conferem 22 municípios e 374 combinações em cada ano, sem pares ausentes nem denominadores de 1 a 4 nesse recorte. A política pública para denominador zero e a elegibilidade territorial precisam de decisão explícita.
 
@@ -175,7 +175,7 @@ Conferência estática com BE09: `data.serie[].municipio_referencia` usa a linha
 | Duplicidades, inválidos e bloqueio de resultado afetado | Plano de controle preparado; política definitiva pendente |
 | Q0–Q8 e Q8B somente leitura, com parâmetros e limites | SQLs presentes; quatro CSVs Q8B agregados conferidos; saídas Q0–Q8 e logs locais ausentes |
 | Amostra real 2022–2025 e conferência manual dos 17 indicadores | Piloto reportado e agregados Q8B conferidos; manifesto da amostra e vetores controlados pendentes |
-| Avaliação do alerta de 60% | Persistência e distribuição Q8B conferidas nos CSVs; decisão formal pendente |
-| Revisão nominal, evidências empíricas, aprovação metodológica e homologação | Pendentes |
+| Avaliação do alerta de 60% | Valor e escopo confirmados pelo REQ05; distribuição Q8B conferida; caso exatamente igual a 60% ausente e pendente de teste sintético |
+| Revisão nominal, evidências empíricas, aprovação metodológica e homologação | Revisão técnica nominal registrada; aprovação metodológica e homologação pendentes |
 
-**Próxima etapa:** revisar os quatro CSVs agregados e o manifesto incorporados, localizar os metadados de execução ainda ausentes, completar os estratos da amostra e registrar decisões de semântica, integridade, universo e limiar. A entrega documental está preparada para revisão; não equivale a homologação ou autorização de publicação oficial.
+**Próxima etapa:** localizar os metadados de execução ainda ausentes, completar os estratos da amostra e registrar decisões de semântica, integridade e universo. A regra informativa de 60% permanece conforme REQ05 e BE09; esta revisão não equivale a homologação metodológica ou autorização de publicação oficial.
