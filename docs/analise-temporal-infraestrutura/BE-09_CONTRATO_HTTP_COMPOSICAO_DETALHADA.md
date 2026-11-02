@@ -6,7 +6,7 @@
 
 **Revisao esperada:** Backend, Dados, Requisitos, Frontend e QA
 
-**Estado:** rascunho tecnico iniciado em 29/10/2026; nao autoriza implementacao antes da validacao da DAD-06
+**Estado:** rascunho tecnico iniciado em 29/10/2026; regra de negocio do alerta consolidada e validacao empirica pendente na DAD-06
 
 **Versao proposta:** `infraestrutura-v3-provisoria`
 
@@ -48,7 +48,7 @@ Em caso de divergencia, a implementacao nao deve escolher uma regra
 silenciosamente. A divergencia deve permanecer registrada ate a revisao dos
 responsaveis.
 
-## 3. Divergencia aberta sobre o alerta de cobertura
+## 3. Decisao consolidada sobre o alerta de cobertura
 
 As fontes atuais concordam que:
 
@@ -57,20 +57,21 @@ As fontes atuais concordam que:
 - o resultado continua visivel e recebe um aviso informativo;
 - `null` nao entra no denominador valido.
 
-Existe, porem, uma divergencia sobre o valor do alerta:
+Os registros anteriores apresentavam estados diferentes para o valor do alerta:
 
 | Fonte | Registro atual |
 |---|---|
-| Relatorio REQ05 | Apresenta `60%` como limiar oficial do aviso de precisao reduzida. |
-| Wiki da Sprint 4 e criterios da DAD06 | Tratam o valor exato como pendente de validacao empirica por Dados. |
-| DAD-05 | Confirma ausencia de corte minimo, mas nao homologa um limiar visual de `60%`. |
+| Relatorio REQ05 | Apresenta `60%` como limiar oficial do aviso de precisao reduzida para a escola. |
+| Wiki da Sprint 4 e criterios da DAD06 | Registram a necessidade de validacao empirica por Dados. |
+| DAD-05 | Confirma ausencia de corte minimo, mas nao define um limiar visual. |
 
-Decisao deste rascunho:
+Decisao consolidada para este contrato:
 
-- `60.0` aparece como proposta provisoria no contrato;
-- o campo de status informa que a decisao depende da DAD06;
+- `60.0` e o limiar confirmado por Requisitos para a cobertura dos indicadores da escola selecionada;
+- a DAD06 valida empiricamente a aplicacao da regra, o denominador e a amostra, mas nao altera o valor sem uma nova decisao de Requisitos;
+- o alerta usa somente a cobertura da escola e nao e aplicado automaticamente a cobertura municipal por indicador;
 - a regra nao bloqueia o calculo nem remove dados;
-- a BE09 nao pode ser encerrada enquanto a DAD06 nao confirmar ou substituir o valor.
+- a wiki deve ser conciliada com o REQ05 para eliminar o registro anterior de decisao pendente.
 
 ## 4. Rota oficial
 
@@ -108,6 +109,8 @@ Campos adicionados na versao 3:
 
 - `data.metodologia.limiar_alerta_cobertura_percentual`;
 - `data.metodologia.limiar_alerta_cobertura_status`;
+- `data.metodologia.limiar_alerta_cobertura_escopo`;
+- `data.metodologia.validacao_empirica_cobertura_status`;
 - `data.metodologia.bloqueia_resultado_por_cobertura`;
 - `data.metodologia.avisos`;
 - `data.serie[].municipio_referencia`;
@@ -166,7 +169,9 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
       "total_indicadores": 17,
       "cobertura_minima_percentual": null,
       "limiar_alerta_cobertura_percentual": 60.0,
-      "limiar_alerta_cobertura_status": "provisorio_pendente_dad06",
+      "limiar_alerta_cobertura_status": "confirmado_req05",
+      "limiar_alerta_cobertura_escopo": "escola_selecionada",
+      "validacao_empirica_cobertura_status": "pendente_dad06",
       "bloqueia_resultado_por_cobertura": false,
       "avisos": [
         "Esta analise utiliza metodologia de calculo em carater provisorio e pendente de homologacao.",
@@ -220,8 +225,7 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
             "quantidade_sem_dados": 11,
             "quantidade_escolas_referencia": 94,
             "percentual_presentes": 96.39,
-            "cobertura_percentual": 88.3,
-            "cobertura_reduzida": false
+            "cobertura_percentual": 88.3
           },
           "in_energia_rede_publica": {
             "quantidade_presentes": 90,
@@ -229,8 +233,7 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
             "quantidade_sem_dados": 0,
             "quantidade_escolas_referencia": 94,
             "percentual_presentes": 95.74,
-            "cobertura_percentual": 100.0,
-            "cobertura_reduzida": false
+            "cobertura_percentual": 100.0
           },
           "in_esgoto_rede_publica": {
             "quantidade_presentes": 60,
@@ -238,8 +241,7 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
             "quantidade_sem_dados": 12,
             "quantidade_escolas_referencia": 94,
             "percentual_presentes": 73.17,
-            "cobertura_percentual": 87.23,
-            "cobertura_reduzida": false
+            "cobertura_percentual": 87.23
           },
           "in_lixo_servico_coleta": {
             "quantidade_presentes": 75,
@@ -247,8 +249,7 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
             "quantidade_sem_dados": 10,
             "quantidade_escolas_referencia": 94,
             "percentual_presentes": 89.29,
-            "cobertura_percentual": 89.36,
-            "cobertura_reduzida": false
+            "cobertura_percentual": 89.36
           },
           "in_banheiro": {
             "quantidade_presentes": 83,
@@ -256,8 +257,7 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
             "quantidade_sem_dados": 9,
             "quantidade_escolas_referencia": 94,
             "percentual_presentes": 97.65,
-            "cobertura_percentual": 90.43,
-            "cobertura_reduzida": false
+            "cobertura_percentual": 90.43
           },
           "in_banheiro_pne": {
             "quantidade_presentes": 55,
@@ -265,8 +265,7 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
             "quantidade_sem_dados": 14,
             "quantidade_escolas_referencia": 94,
             "percentual_presentes": 68.75,
-            "cobertura_percentual": 85.11,
-            "cobertura_reduzida": false
+            "cobertura_percentual": 85.11
           },
           "in_biblioteca": {
             "quantidade_presentes": 50,
@@ -274,8 +273,7 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
             "quantidade_sem_dados": 12,
             "quantidade_escolas_referencia": 94,
             "percentual_presentes": 60.98,
-            "cobertura_percentual": 87.23,
-            "cobertura_reduzida": false
+            "cobertura_percentual": 87.23
           },
           "in_sala_leitura": {
             "quantidade_presentes": 35,
@@ -283,8 +281,7 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
             "quantidade_sem_dados": 16,
             "quantidade_escolas_referencia": 94,
             "percentual_presentes": 44.87,
-            "cobertura_percentual": 82.98,
-            "cobertura_reduzida": false
+            "cobertura_percentual": 82.98
           },
           "in_laboratorio_ciencias": {
             "quantidade_presentes": 30,
@@ -292,8 +289,7 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
             "quantidade_sem_dados": 14,
             "quantidade_escolas_referencia": 94,
             "percentual_presentes": 37.5,
-            "cobertura_percentual": 85.11,
-            "cobertura_reduzida": false
+            "cobertura_percentual": 85.11
           },
           "in_laboratorio_informatica": {
             "quantidade_presentes": 40,
@@ -301,8 +297,7 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
             "quantidade_sem_dados": 11,
             "quantidade_escolas_referencia": 94,
             "percentual_presentes": 48.19,
-            "cobertura_percentual": 88.3,
-            "cobertura_reduzida": false
+            "cobertura_percentual": 88.3
           },
           "in_sala_multiuso": {
             "quantidade_presentes": 25,
@@ -310,8 +305,7 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
             "quantidade_sem_dados": 17,
             "quantidade_escolas_referencia": 94,
             "percentual_presentes": 32.47,
-            "cobertura_percentual": 81.91,
-            "cobertura_reduzida": false
+            "cobertura_percentual": 81.91
           },
           "in_sala_atendimento_especial": {
             "quantidade_presentes": 20,
@@ -319,8 +313,7 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
             "quantidade_sem_dados": 39,
             "quantidade_escolas_referencia": 94,
             "percentual_presentes": 36.36,
-            "cobertura_percentual": 58.51,
-            "cobertura_reduzida": true
+            "cobertura_percentual": 58.51
           },
           "in_cozinha": {
             "quantidade_presentes": 82,
@@ -328,8 +321,7 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
             "quantidade_sem_dados": 9,
             "quantidade_escolas_referencia": 94,
             "percentual_presentes": 96.47,
-            "cobertura_percentual": 90.43,
-            "cobertura_reduzida": false
+            "cobertura_percentual": 90.43
           },
           "in_refeitorio": {
             "quantidade_presentes": 65,
@@ -337,8 +329,7 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
             "quantidade_sem_dados": 10,
             "quantidade_escolas_referencia": 94,
             "percentual_presentes": 77.38,
-            "cobertura_percentual": 89.36,
-            "cobertura_reduzida": false
+            "cobertura_percentual": 89.36
           },
           "in_quadra_esportes": {
             "quantidade_presentes": 60,
@@ -346,8 +337,7 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
             "quantidade_sem_dados": 11,
             "quantidade_escolas_referencia": 94,
             "percentual_presentes": 72.29,
-            "cobertura_percentual": 88.3,
-            "cobertura_reduzida": false
+            "cobertura_percentual": 88.3
           },
           "in_patio_coberto": {
             "quantidade_presentes": 70,
@@ -355,8 +345,7 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
             "quantidade_sem_dados": 10,
             "quantidade_escolas_referencia": 94,
             "percentual_presentes": 83.33,
-            "cobertura_percentual": 89.36,
-            "cobertura_reduzida": false
+            "cobertura_percentual": 89.36
           },
           "in_auditorio": {
             "quantidade_presentes": 15,
@@ -364,8 +353,7 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
             "quantidade_sem_dados": 16,
             "quantidade_escolas_referencia": 94,
             "percentual_presentes": 19.23,
-            "cobertura_percentual": 82.98,
-            "cobertura_reduzida": false
+            "cobertura_percentual": 82.98
           }
         }
       }
@@ -423,7 +411,6 @@ historico e conhecido. A escola selecionada e excluida antes das contagens.
 | `quantidade_escolas_referencia` | inteiro | Nao | Total de outras escolas encontradas no municipio e ano. |
 | `percentual_presentes` | numero | Sim | `100 * presentes / validos`; `null` quando `validos = 0`. |
 | `cobertura_percentual` | numero | Sim | `100 * validos / escolas_referencia`; `null` quando nao ha escolas. |
-| `cobertura_reduzida` | booleano | Nao | Verdadeiro quando a cobertura e menor que o limiar provisorio. |
 
 Invariantes obrigatorias:
 
@@ -441,7 +428,8 @@ Quando nao existe registro anual da escola e, portanto, nao existe municipio
 historico seguro, `composicao_municipal` e `null`.
 
 Quando o municipio e conhecido, mas nao existem outras escolas, o objeto possui
-as 17 chaves com contagens `0`, percentuais `null` e cobertura reduzida `false`.
+as 17 chaves com contagens `0` e percentuais `null`. Nenhuma classificacao de
+cobertura municipal e inferida.
 
 ## 10. Cobertura e alerta
 
@@ -453,22 +441,29 @@ O contrato diferencia duas regras:
 `cobertura_minima_percentual` permanece `null`. Nenhum resultado e bloqueado por
 baixa cobertura.
 
-Enquanto a divergencia da secao 3 estiver aberta:
+Para a escola selecionada:
 
-- `limiar_alerta_cobertura_percentual` vale `60.0` apenas como proposta;
-- `limiar_alerta_cobertura_status` vale `provisorio_pendente_dad06`;
+- `limiar_alerta_cobertura_percentual` vale `60.0`;
+- `limiar_alerta_cobertura_status` vale `confirmado_req05`;
+- `limiar_alerta_cobertura_escopo` vale `escola_selecionada`;
+- `validacao_empirica_cobertura_status` vale `pendente_dad06` ate a conclusao da validacao;
 - a comparacao usa a razao exata, antes do arredondamento, e o operador
   estritamente menor que o limiar;
 - cobertura exatamente igual a `60.0` nao gera alerta;
-- cobertura `null` por ausencia de denominador nao e classificada como reduzida;
 - o frontend deve exibir aviso, mas manter todos os valores disponiveis.
 
 No ponto anual, `cobertura_indicadores_reduzida` aplica essa regra aos
-indicadores validos da escola sobre o total de 17. Em cada item de
-`composicao_municipal`, `cobertura_reduzida` aplica a mesma regra aos registros
-validos do indicador sobre `quantidade_escolas_referencia`.
+indicadores validos da escola sobre o total de 17. O campo e `true` somente
+quando existe registro historico e a razao exata e menor que `60%`. Sem registro
+historico, o campo e `false`, pois nao existe resultado cuja precisao deva ser
+classificada.
 
-A DAD06 deve confirmar o valor, o escopo do alerta e a amostra de validacao
+Na composicao municipal, `cobertura_percentual` continua exposta para
+transparencia, mas nao recebe classificacao automatica de cobertura reduzida.
+Um alerta municipal somente pode ser adicionado depois de decisao explicita de
+Requisitos e validacao de Dados.
+
+A DAD06 deve validar o denominador, a aplicacao empirica dos `60%` e a amostra
 antes de este documento ser marcado como pronto.
 
 ## 11. Precisao e arredondamento
@@ -496,6 +491,7 @@ Os quatro valores de `situacao` permanecem:
 - `registro_historico_disponivel = false`;
 - `municipio_referencia = null`;
 - as 17 chaves de `composicao_escola` valem `null`;
+- `cobertura_indicadores_reduzida = false`;
 - `composicao_municipal = null`;
 - indice, media e diferenca valem `null`;
 - as contagens da escola e dos pares valem `0`.
@@ -505,6 +501,8 @@ Os quatro valores de `situacao` permanecem:
 - `registro_historico_disponivel = true`;
 - `municipio_referencia` e preenchido;
 - as 17 chaves de `composicao_escola` valem `null`;
+- `cobertura_indicadores_percentual = 0.0`;
+- `cobertura_indicadores_reduzida = true`;
 - a composicao municipal pode ser calculada;
 - o indice da escola e a diferenca permanecem `null`.
 
@@ -552,7 +550,8 @@ Os corpos e as mensagens permanecem iguais aos da versao 2.
 - usar `municipio_referencia` do ano selecionado;
 - mostrar `quantidade_presentes` de `quantidade_validos` e o percentual;
 - disponibilizar `quantidade_sem_dados` e `cobertura_percentual` no tooltip;
-- exibir o aviso quando `cobertura_reduzida = true`;
+- exibir o aviso da escola quando `cobertura_indicadores_reduzida = true`;
+- nao inferir alerta municipal apenas a partir de `cobertura_percentual`;
 - nunca ocultar os dados por causa do aviso;
 - nao apresentar `percentual_presentes = null` como `0%`;
 - exibir os dois avisos metodologicos de `metodologia.avisos`;
@@ -570,7 +569,9 @@ Os corpos e as mensagens permanecem iguais aos da versao 2.
 - [x] Escola inexistente diferenciada de escola existente sem historico.
 - [x] Precisao e arredondamento documentados.
 - [x] Regras e avisos metodologicos expostos nos metadados.
-- [ ] Limiar de alerta confirmado ou substituido pela DAD06.
+- [x] Limiar de `60%` confirmado pelo REQ05 para a escola selecionada.
+- [x] Escopo do alerta separado da cobertura municipal por indicador.
+- [ ] Aplicacao empirica do limiar validada pela DAD06.
 - [ ] Exemplo completo de quatro anos validado por Dados, Frontend e QA.
 - [ ] Revisao tecnica registrada no Taiga.
 
@@ -582,15 +583,15 @@ Dados deve confirmar:
 
 - denominador valido por indicador;
 - relacao entre validos, sem dados e total de escolas;
-- aplicacao do limiar de `60%` ou valor substituto;
+- aplicacao empirica do limiar de `60%` para a escola selecionada;
 - amostra manual de 2022 a 2025;
 - tratamento de integridade para valores fora de `0`, `1` e `null`;
 - evidencia de que a escola selecionada foi excluida.
 
 ### Requisitos
 
-Requisitos deve confirmar que o relatorio REQ05 e a wiki foram conciliados
-quanto ao limiar de alerta e aos textos obrigatorios.
+Requisitos deve atualizar a wiki para refletir que o REQ05 confirmou o limiar
+de `60%` para a escola e manter os textos obrigatorios consistentes.
 
 ### Frontend
 
