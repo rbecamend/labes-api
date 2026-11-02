@@ -6,7 +6,7 @@
 
 **Revisao esperada:** Backend, Dados, Requisitos, Frontend e QA
 
-**Estado:** rascunho tecnico iniciado em 29/10/2026; regra de negocio do alerta consolidada e validacao empirica pendente na DAD-06
+**Estado:** rascunho tecnico revisado com a auditoria agregada da DAD06; amostra manual, casos de fronteira e revisao multidisciplinar ainda pendentes
 
 **Versao proposta:** `infraestrutura-v3-provisoria`
 
@@ -39,10 +39,12 @@ Este rascunho foi elaborado a partir das seguintes fontes:
 1. contrato HTTP v2 vigente e implementacao integrada da Sprint 3;
 2. relatorio REQ05 anexado a historia #54 do Taiga;
 3. criterios de aceite das historias REQ05, DAD06 e BE09;
-4. [DAD-05 - Contrato metodologico](DAD-05_CONTRATO_METODOLOGICO.md);
-5. [DAD-02 - Matriz de comparabilidade temporal](DAD-02_MATRIZ_COMPARABILIDADE_TEMPORAL.md);
-6. decisao operacional provisoria da Sprint 3;
-7. codigo e testes vigentes na branch compartilhada da Sprint 3.
+4. [DAD06 - Denominadores e amostra de validacao](https://github.com/rbecamend/labes-api/blob/5af47d4/docs/analise-temporal-infraestrutura/DAD-06_DENOMINADORES_E_AMOSTRA_VALIDACAO.md);
+5. [DAD06 - Relatorio tecnico final](https://github.com/rbecamend/labes-api/blob/5af47d4/docs/analise-temporal-infraestrutura/DAD-06_RELATORIO_TECNICO_FINAL.md), commit `5af47d4` e PR #14;
+6. [DAD-05 - Contrato metodologico](DAD-05_CONTRATO_METODOLOGICO.md);
+7. [DAD-02 - Matriz de comparabilidade temporal](DAD-02_MATRIZ_COMPARABILIDADE_TEMPORAL.md);
+8. decisao operacional provisoria da Sprint 3;
+9. codigo e testes vigentes na branch compartilhada da Sprint 3.
 
 Em caso de divergencia, a implementacao nao deve escolher uma regra
 silenciosamente. A divergencia deve permanecer registrada ate a revisao dos
@@ -62,16 +64,17 @@ Os registros anteriores apresentavam estados diferentes para o valor do alerta:
 | Fonte | Registro atual |
 |---|---|
 | Relatorio REQ05 | Apresenta `60%` como limiar oficial do aviso de precisao reduzida para a escola. |
-| Wiki da Sprint 4 e criterios da DAD06 | Registram a necessidade de validacao empirica por Dados. |
+| DAD06 | A auditoria Q8B encontrou 5.644 cenarios abaixo de `60%`, nenhum exatamente igual a `60%` e 228.344 acima. A evidencia sustenta o uso informativo do limiar, mas nao homologa o valor nem cobre o caso exato de fronteira. |
+| Wiki da Sprint 4 | Foi conciliada com o REQ05: `60%` aplica-se somente a escola selecionada e nao bloqueia a exibicao. |
 | DAD-05 | Confirma ausencia de corte minimo, mas nao define um limiar visual. |
 
 Decisao consolidada para este contrato:
 
 - `60.0` e o limiar confirmado por Requisitos para a cobertura dos indicadores da escola selecionada;
-- a DAD06 valida empiricamente a aplicacao da regra, o denominador e a amostra, mas nao altera o valor sem uma nova decisao de Requisitos;
+- a DAD06 valida empiricamente a aplicacao da regra e os denominadores agregados, mas nao altera o valor sem uma nova decisao de Requisitos;
 - o alerta usa somente a cobertura da escola e nao e aplicado automaticamente a cobertura municipal por indicador;
 - a regra nao bloqueia o calculo nem remove dados;
-- a wiki deve ser conciliada com o REQ05 para eliminar o registro anterior de decisao pendente.
+- o caso exatamente igual a `60%` deve ser coberto por teste sintetico, pois nao apareceu na amostra Q8B.
 
 ## 4. Rota oficial
 
@@ -171,7 +174,7 @@ sempre contem as 17 chaves listadas em `metodologia.indicadores`.
       "limiar_alerta_cobertura_percentual": 60.0,
       "limiar_alerta_cobertura_status": "confirmado_req05",
       "limiar_alerta_cobertura_escopo": "escola_selecionada",
-      "validacao_empirica_cobertura_status": "pendente_dad06",
+      "validacao_empirica_cobertura_status": "parcial_dad06_q8b",
       "bloqueia_resultado_por_cobertura": false,
       "avisos": [
         "Esta analise utiliza metodologia de calculo em carater provisorio e pendente de homologacao.",
@@ -446,7 +449,7 @@ Para a escola selecionada:
 - `limiar_alerta_cobertura_percentual` vale `60.0`;
 - `limiar_alerta_cobertura_status` vale `confirmado_req05`;
 - `limiar_alerta_cobertura_escopo` vale `escola_selecionada`;
-- `validacao_empirica_cobertura_status` vale `pendente_dad06` ate a conclusao da validacao;
+- `validacao_empirica_cobertura_status` vale `parcial_dad06_q8b`, pois a auditoria agregada foi concluida, mas nao encontrou caso exatamente igual a `60%` e nao substitui a amostra manual pendente;
 - a comparacao usa a razao exata, antes do arredondamento, e o operador
   estritamente menor que o limiar;
 - cobertura exatamente igual a `60.0` nao gera alerta;
@@ -463,8 +466,25 @@ transparencia, mas nao recebe classificacao automatica de cobertura reduzida.
 Um alerta municipal somente pode ser adicionado depois de decisao explicita de
 Requisitos e validacao de Dados.
 
-A DAD06 deve validar o denominador, a aplicacao empirica dos `60%` e a amostra
-antes de este documento ser marcado como pronto.
+A DAD06 confirmou a reconciliacao matematica dos agregados e registrou cenarios
+abaixo e acima de `60%`. O caso exatamente igual ao limiar e a amostra manual
+ampliada continuam pendentes e devem ser cobertos antes de este documento ser
+marcado como pronto.
+
+### Evidencia empirica incorporada da DAD06
+
+- 13.764 registros analisados entre 2022 e 2025;
+- 12.515 registros completos e 1.249 registros com os 17 indicadores nulos;
+- 1.496 agregados auditados, cobrindo 22 municipios e 17 indicadores por ano;
+- nenhuma divergencia matematica, duplicidade ou valor invalido nos agregados Q8B disponibilizados;
+- 5.644 cenarios abaixo de `60%`, nenhum exatamente igual a `60%` e 228.344 acima;
+- o municipio `1503804` apresentou cobertura media simulada abaixo de `60%` nos quatro anos;
+- nao foram observados casos sem pares nem denominadores entre uma e quatro escolas comparadoras nesse recorte.
+
+Esses resultados validam o comportamento agregado observado, mas nao provam os
+casos ausentes da amostra. Casos de fronteira, denominador zero, valores
+invalidos e duplicidades continuam exigindo testes sinteticos e decisao de
+tratamento publico antes da implementacao.
 
 ## 11. Precisao e arredondamento
 
@@ -571,7 +591,9 @@ Os corpos e as mensagens permanecem iguais aos da versao 2.
 - [x] Regras e avisos metodologicos expostos nos metadados.
 - [x] Limiar de `60%` confirmado pelo REQ05 para a escola selecionada.
 - [x] Escopo do alerta separado da cobertura municipal por indicador.
-- [ ] Aplicacao empirica do limiar validada pela DAD06.
+- [x] Auditoria agregada Q8B da DAD06 revisada e incorporada ao contrato.
+- [ ] Caso exatamente igual a `60%` e demais fronteiras validados por testes sinteticos.
+- [ ] Amostra manual reproduzivel de 2022 a 2025 revisada por Dados.
 - [ ] Exemplo completo de quatro anos validado por Dados, Frontend e QA.
 - [ ] Revisao tecnica registrada no Taiga.
 
@@ -579,19 +601,26 @@ Os corpos e as mensagens permanecem iguais aos da versao 2.
 
 ### DAD06
 
-Dados deve confirmar:
+A auditoria agregada confirmou:
 
 - denominador valido por indicador;
 - relacao entre validos, sem dados e total de escolas;
-- aplicacao empirica do limiar de `60%` para a escola selecionada;
-- amostra manual de 2022 a 2025;
-- tratamento de integridade para valores fora de `0`, `1` e `null`;
-- evidencia de que a escola selecionada foi excluida.
+- uso do municipio historico de cada ano;
+- exclusao da escola selecionada;
+- reconciliacao matematica dos agregados Q8B.
+
+Ainda faltam para a conclusao da BE09:
+
+- integrar ou revisar formalmente a PR #14 na branch compartilhada;
+- disponibilizar a amostra manual ampliada de 2022 a 2025;
+- cobrir por testes sinteticos o caso exatamente igual a `60%`, denominador zero e outros casos ausentes da Q8B;
+- decidir o tratamento publico de valores invalidos e duplicidades, sem conversao silenciosa;
+- registrar a homologacao metodologica ou manter explicitamente o estado provisorio.
 
 ### Requisitos
 
-Requisitos deve atualizar a wiki para refletir que o REQ05 confirmou o limiar
-de `60%` para a escola e manter os textos obrigatorios consistentes.
+Requisitos deve revisar o contrato e manter os textos obrigatorios consistentes
+com o REQ05 e com a wiki ja conciliada.
 
 ### Frontend
 
