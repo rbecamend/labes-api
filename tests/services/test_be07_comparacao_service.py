@@ -97,10 +97,29 @@ async def test_servico_monta_serie_fixa_com_calculos_e_lacunas():
     assert serie[0]["quantidade_indicadores_validos"] == 17
     assert serie[0]["media_municipal_percentual"] == 50.0
     assert serie[0]["quantidade_pares_validos"] == 2
+    assert serie[0]["registro_historico_disponivel"] is True
+    assert serie[0]["municipio_referencia"]["co_municipio"] == 1501402
+    assert len(serie[0]["composicao_escola"]) == 17
+    agua_2022 = serie[0]["composicao_municipal"]["in_agua_potavel"]
+    assert agua_2022 == {
+        "quantidade_presentes": 1,
+        "quantidade_validos": 2,
+        "quantidade_sem_dados": 0,
+        "quantidade_escolas_referencia": 2,
+        "percentual_presentes": 50.0,
+        "cobertura_percentual": 100.0,
+    }
     assert serie[1]["situacao"] == "escola_sem_dados"
     assert serie[1]["denominador_pares"] == 0
+    assert serie[1]["registro_historico_disponivel"] is False
+    assert serie[1]["municipio_referencia"] is None
+    assert all(valor is None for valor in serie[1]["composicao_escola"].values())
+    assert serie[1]["composicao_municipal"] is None
     assert serie[2]["situacao"] == "escola_sem_dados"
     assert serie[2]["media_municipal_percentual"] == 100.0
+    assert serie[2]["registro_historico_disponivel"] is True
+    assert serie[2]["cobertura_indicadores_reduzida"] is True
+    assert all(valor is None for valor in serie[2]["composicao_escola"].values())
     assert serie[3]["situacao"] == "escola_sem_dados"
     assert repositorio.anos_consultados == ANOS_COMPARACAO
     assert [chamada["ano"] for chamada in repositorio.chamadas_pares] == [
@@ -120,6 +139,8 @@ async def test_servico_retorna_quatro_lacunas_para_escola_sem_anos_do_mvp():
     assert [ponto["ano"] for ponto in serie] == list(ANOS_COMPARACAO)
     assert all(ponto["situacao"] == "escola_sem_dados" for ponto in serie)
     assert all(ponto["total_indicadores"] == 17 for ponto in serie)
+    assert all(not ponto["registro_historico_disponivel"] for ponto in serie)
+    assert all(not ponto["cobertura_indicadores_reduzida"] for ponto in serie)
     assert repositorio.chamadas_pares == []
     ComparacaoInfraestruturaResponse.model_validate(envelope)
 

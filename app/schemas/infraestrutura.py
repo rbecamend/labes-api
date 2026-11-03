@@ -3,7 +3,10 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.domain.infraestrutura import SituacaoComparacaoInfraestrutura
+from app.domain.infraestrutura import (
+    SituacaoComparacaoInfraestrutura,
+    cobertura_indicadores_reduzida,
+)
 
 # Envelopes genéricos reaproveitados de acessibilidade (PlotlyFigure, Grafico,
 # Paginacao e os blocos de dados são idênticos entre os painéis).
@@ -30,6 +33,7 @@ __all__ = [
     "CodigoErroComparacaoInfraestrutura",
     "EscolaComparacaoInfraestrutura",
     "MunicipioComparacaoInfraestrutura",
+    "ComposicaoMunicipalIndicadorInfraestrutura",
     "MetodologiaComparacaoInfraestrutura",
     "PontoComparacaoInfraestrutura",
     "ComparacaoInfraestruturaData",
@@ -160,7 +164,7 @@ class MunicipioComparacaoInfraestrutura(_ContratoComparacaoInfraestrutura):
 class MetodologiaComparacaoInfraestrutura(_ContratoComparacaoInfraestrutura):
     """Metadados da metodologia provisória usada no cálculo."""
 
-    versao: Literal["infraestrutura-v2-provisoria"] = Field(
+    versao: Literal["infraestrutura-v3-provisoria"] = Field(
         ..., description="Versão da metodologia aplicada."
     )
     homologada: Literal[False] = Field(
@@ -180,6 +184,24 @@ class MetodologiaComparacaoInfraestrutura(_ContratoComparacaoInfraestrutura):
     )
     cobertura_minima_percentual: None = Field(
         ..., description="Sem corte mínimo de cobertura neste MVP."
+    )
+    limiar_alerta_cobertura_percentual: Literal[60.0] = Field(
+        ..., description="Limiar informativo de cobertura da escola."
+    )
+    limiar_alerta_cobertura_status: Literal["confirmado_req05"] = Field(
+        ..., description="Origem da decisão sobre o limiar informativo."
+    )
+    limiar_alerta_cobertura_escopo: Literal["escola_selecionada"] = Field(
+        ..., description="Escopo do alerta, sem classificação municipal."
+    )
+    validacao_empirica_cobertura_status: Literal["parcial_dad06_q8b"] = Field(
+        ..., description="Estado da validação empírica da regra de cobertura."
+    )
+    bloqueia_resultado_por_cobertura: Literal[False] = Field(
+        ..., description="Baixa cobertura não bloqueia nem oculta os resultados."
+    )
+    avisos: list[str] = Field(
+        ..., min_length=2, description="Ressalvas para exibição ao usuário."
     )
     observacao: str = Field(
         ..., min_length=1, description="Ressalva metodológica para exibição."
@@ -204,6 +226,64 @@ class MetodologiaComparacaoInfraestrutura(_ContratoComparacaoInfraestrutura):
         return indicadores
 
 
+class ComposicaoMunicipalIndicadorInfraestrutura(
+    _ContratoComparacaoInfraestrutura
+):
+    """Contagens auditáveis de um indicador entre os pares municipais."""
+
+    quantidade_presentes: int = Field(..., ge=0)
+    quantidade_validos: int = Field(..., ge=0)
+    quantidade_sem_dados: int = Field(..., ge=0)
+    quantidade_escolas_referencia: int = Field(..., ge=0)
+    percentual_presentes: float | None = Field(..., ge=0, le=100)
+    cobertura_percentual: float | None = Field(..., ge=0, le=100)
+
+    @model_validator(mode="after")
+    def validar_contagens_e_percentuais(self) -> Self:
+        if self.quantidade_presentes > self.quantidade_validos:
+            raise ValueError("Presentes não podem superar os valores válidos.")
+        if (
+            self.quantidade_validos + self.quantidade_sem_dados
+            != self.quantidade_escolas_referencia
+        ):
+            raise ValueError(
+                "Válidos e sem dados devem totalizar as escolas de referência."
+            )
+
+        percentual_esperado = (
+            float(
+                round(
+                    Fraction(
+                        100 * self.quantidade_presentes,
+                        self.quantidade_validos,
+                    ),
+                    2,
+                )
+            )
+            if self.quantidade_validos
+            else None
+        )
+        if self.percentual_presentes != percentual_esperado:
+            raise ValueError("Percentual de presença não corresponde às contagens.")
+
+        cobertura_esperada = (
+            float(
+                round(
+                    Fraction(
+                        100 * self.quantidade_validos,
+                        self.quantidade_escolas_referencia,
+                    ),
+                    2,
+                )
+            )
+            if self.quantidade_escolas_referencia
+            else None
+        )
+        if self.cobertura_percentual != cobertura_esperada:
+            raise ValueError("Cobertura municipal não corresponde às contagens.")
+        return self
+
+
 class PontoComparacaoInfraestrutura(_ContratoComparacaoInfraestrutura):
     """Resultado da comparação Escola × Município em um ano do contrato."""
 
@@ -212,6 +292,12 @@ class PontoComparacaoInfraestrutura(_ContratoComparacaoInfraestrutura):
     )
     situacao: SituacaoComparacaoInfraestrutura = Field(
         ..., description="Disponibilidade do ponto anual."
+    )
+    municipio_referencia: MunicipioComparacaoInfraestrutura | None = Field(
+        ..., description="Município histórico usado no ponto anual."
+    )
+    registro_historico_disponivel: bool = Field(
+        ..., description="Distingue uma linha histórica de uma lacuna anual."
     )
     indice_escola_percentual: float | None = Field(
         ..., ge=0, le=100, description="Índice calculado para a escola."
@@ -227,6 +313,9 @@ class PontoComparacaoInfraestrutura(_ContratoComparacaoInfraestrutura):
     )
     cobertura_indicadores_percentual: float | None = Field(
         ..., ge=0, le=100, description="Cobertura dos indicadores da escola."
+    )
+    cobertura_indicadores_reduzida: bool = Field(
+        ..., description="Alerta informativo para cobertura escolar abaixo de 60%."
     )
     media_municipal_percentual: float | None = Field(
         ..., ge=0, le=100, description="Média simples dos pares válidos."
@@ -246,6 +335,45 @@ class PontoComparacaoInfraestrutura(_ContratoComparacaoInfraestrutura):
     cobertura_pares_percentual: float | None = Field(
         ..., ge=0, le=100, description="Cobertura dos pares municipais."
     )
+    composicao_escola: dict[str, Literal[0, 1] | None] = Field(
+        ..., description="Valores dos 17 indicadores da escola."
+    )
+    composicao_municipal: dict[
+        str, ComposicaoMunicipalIndicadorInfraestrutura
+    ] | None = Field(
+        ..., description="Contagens por indicador entre os pares municipais."
+    )
+
+    @field_validator("composicao_escola", mode="before")
+    @classmethod
+    def validar_composicao_escola(
+        cls, composicao: dict[str, int | None]
+    ) -> dict[str, int | None]:
+        if not isinstance(composicao, dict):
+            raise ValueError("A composição da escola deve ser um objeto.")
+        if set(composicao) != set(INDICADORES_COMPARACAO_INFRAESTRUTURA):
+            raise ValueError(
+                "A composição da escola deve conter exatamente os 17 indicadores."
+            )
+        if any(
+            type(valor) is not int and valor is not None
+            for valor in composicao.values()
+        ):
+            raise ValueError("Indicadores da escola devem ser 0, 1 ou nulos.")
+        if any(valor not in (0, 1, None) for valor in composicao.values()):
+            raise ValueError("Indicadores da escola devem ser 0, 1 ou nulos.")
+        return composicao
+
+    @field_validator("composicao_municipal", mode="before")
+    @classmethod
+    def validar_chaves_composicao_municipal(cls, composicao):
+        if composicao is not None and set(composicao) != set(
+            INDICADORES_COMPARACAO_INFRAESTRUTURA
+        ):
+            raise ValueError(
+                "A composição municipal deve conter exatamente os 17 indicadores."
+            )
+        return composicao
 
     @model_validator(mode="after")
     def validar_contagens(self) -> Self:
@@ -260,6 +388,54 @@ class PontoComparacaoInfraestrutura(_ContratoComparacaoInfraestrutura):
             raise ValueError(
                 "Pares válidos não podem superar o denominador de pares."
             )
+
+        valores_escola = list(self.composicao_escola.values())
+        if (
+            sum(valor == 1 for valor in valores_escola)
+            != self.quantidade_indicadores_presentes
+        ):
+            raise ValueError("A composição da escola não corresponde aos presentes.")
+        if (
+            sum(valor is not None for valor in valores_escola)
+            != self.quantidade_indicadores_validos
+        ):
+            raise ValueError("A composição da escola não corresponde aos válidos.")
+
+        if not self.registro_historico_disponivel:
+            if self.municipio_referencia is not None:
+                raise ValueError(
+                    "Lacuna histórica não pode informar município de referência."
+                )
+            if any(valor is not None for valor in valores_escola):
+                raise ValueError("Lacuna histórica deve ter composição escolar nula.")
+            if self.composicao_municipal is not None:
+                raise ValueError("Lacuna histórica não pode ter composição municipal.")
+            if self.cobertura_indicadores_reduzida:
+                raise ValueError("Lacuna histórica não recebe alerta de cobertura.")
+        else:
+            alerta_esperado = cobertura_indicadores_reduzida(
+                self.quantidade_indicadores_validos,
+                self.total_indicadores,
+            )
+            if self.cobertura_indicadores_reduzida != alerta_esperado:
+                raise ValueError(
+                    "Alerta de cobertura não corresponde ao limiar de 60%."
+                )
+            if (
+                self.municipio_referencia is None
+                and self.composicao_municipal is not None
+            ):
+                raise ValueError("Composição municipal exige município de referência.")
+
+        if self.composicao_municipal is not None:
+            denominadores = {
+                item.quantidade_escolas_referencia
+                for item in self.composicao_municipal.values()
+            }
+            if denominadores != {self.denominador_pares}:
+                raise ValueError(
+                    "A composição municipal deve usar o denominador de pares do ano."
+                )
 
         cobertura_indicadores_esperada = float(
             round(
