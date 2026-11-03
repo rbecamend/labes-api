@@ -4,9 +4,9 @@
 
 **Responsavel:** Rebeca Mendonca
 
-**Revisao esperada:** Backend, Dados, Requisitos, Frontend e QA
+**Revisao:** Backend, Dados, Requisitos, Frontend e QA
 
-**Estado:** rascunho de descoberta iniciado em 02/11/2026; REQ06 revisada e DAD07 ainda em andamento
+**Estado:** proposta tecnica finalizada para revisao; implementacao funcional fora do escopo da Sprint 4
 
 **Versao proposta:** `infraestrutura-multipla-v1-provisoria`
 
@@ -14,79 +14,99 @@
 
 ## 1. Objetivo
 
-Propor um contrato HTTP para comparar, em uma unica resposta, ate tres alvos de
-infraestrutura. Um alvo pode ser uma escola ou um municipio.
+Propor o contrato HTTP de uma futura comparacao temporal entre escolas e
+municipios. O usuario podera escolher manualmente ate tres alvos, em qualquer
+combinacao entre escolas e municipios.
 
-Esta historia nao autoriza a implementacao do endpoint na Sprint 4. O documento
-serve para alinhar a futura implementacao entre Backend, Dados, Requisitos,
-Frontend e QA.
+Cada escola escolhida gera obrigatoriamente uma serie adicional com sua
+referencia municipal. Essa referencia nao consome uma vaga do seletor manual.
+Por isso, a resposta pode conter ate seis series.
+
+Esta historia documenta o comportamento esperado, mas nao implementa o novo
+endpoint na Sprint 4.
 
 ## 2. Fontes e precedencia
 
-O rascunho considera:
+Esta proposta considera:
 
-1. REQ06, historia #64 do Taiga e o documento anexado em 27/10/2026;
-2. criterios de aceite da BE11, historia #65 do Taiga;
-3. DAD07, historia #63 do Taiga, ainda em andamento e sem evidencia anexada na data desta revisao;
-4. [BE09 - Contrato HTTP v3 da composicao detalhada](https://github.com/rbecamend/labes-api/blob/562f1297587b6ad4775bc1ec9e549222a31048e0/docs/analise-temporal-infraestrutura/BE-09_CONTRATO_HTTP_COMPOSICAO_DETALHADA.md);
-5. endpoint vigente da Sprint 3 para comparacao Escola x Municipio.
+1. REQ06 e seus criterios de aceite;
+2. os cinco esclarecimentos posteriores de Requisitos sobre selecao mista,
+   referencias automaticas, municipios coincidentes, dados insuficientes e o
+   limiar de 60%;
+3. DAD07, com a proposta de agregacao municipal;
+4. DAD05 e DAD06, com as regras de cobertura e denominador;
+5. BE09 e BE12, com o contrato e a implementacao da composicao detalhada;
+6. o endpoint da Sprint 3 para comparacao Escola x Municipio.
 
-Em caso de divergencia, uma regra nao deve ser implementada silenciosamente. A
-decisao deve ser registrada por Requisitos ou Dados, conforme a natureza da
-divergencia.
+Os esclarecimentos posteriores de Requisitos prevalecem sobre a interpretacao
+inicial de que existiriam apenas tres linhas no grafico. Se REQ06 ainda mostrar
+essa interpretacao antiga no Taiga, o documento deve ser atualizado antes da
+implementacao funcional.
 
-## 3. Divergencias que impedem a versao final
+## 3. Decisoes consolidadas
 
-### 3.1 Limite de selecao mista
+### 3.1 Limites
 
-A REQ06 registra dois enunciados diferentes:
+Considere:
 
-- ate tres municipios e ate tres escolas;
-- no cenario BDD com uma escola e dois municipios, devem existir exatamente tres linhas.
+- `E` como a quantidade de escolas selecionadas manualmente;
+- `M` como a quantidade de municipios selecionados manualmente.
 
-Se os limites forem independentes, uma requisicao poderia ter seis alvos e ainda
-gerar referencias municipais adicionais para as escolas. Isso conflita com o
-objetivo de legibilidade e com o cenario de tres linhas.
+As regras sao:
 
-Decisao provisoria deste rascunho:
+```text
+E + M <= 3
+referencias_automaticas = E
+total_series = E + M + referencias_automaticas
+total_series = M + 2 * E
+total_series <= 6
+```
 
-- o limite e de tres alvos principais no total, independentemente do tipo;
-- a referencia municipal de uma escola fica dentro do ponto anual da propria escola;
-- referencias territoriais nao viram series principais adicionais;
-- Requisitos deve confirmar essa interpretacao antes da implementacao.
+Exemplos:
 
-### 3.2 Agregacao municipal
+| Selecao manual | Referencias automaticas | Total de series |
+|---|---:|---:|
+| 3 municipios | 0 | 3 |
+| 1 escola + 2 municipios | 1 | 4 |
+| 2 escolas + 1 municipio | 2 | 5 |
+| 3 escolas | 3 | 6 |
 
-A REQ06 proibe uma media combinada entre municipios, mas nao fecha a formula do
-valor temporal de cada municipio. A DAD07 deve decidir:
+### 3.2 Referencia municipal automatica
 
-- universo de escolas elegiveis por municipio e ano;
-- denominador valido;
-- media simples ou outra ponderacao;
-- tratamento de registros ausentes e denominadores iguais a zero;
-- efeitos de mudanca territorial e municipio historico.
+- Cada escola selecionada gera uma referencia municipal propria.
+- A referencia exclui somente a escola que a originou.
+- O municipio de referencia e obtido do registro historico da escola em cada ano.
+- Duas escolas do mesmo municipio geram referencias separadas, porque cada uma
+  exige uma exclusao individual.
+- A legenda usa `Referencia municipal da [Nome da Escola]`.
+- O tooltip informa o nome e o codigo do municipio historico daquele ano.
 
-Recomendacao provisoria para permitir a discussao do contrato:
+### 3.3 Municipio selecionado manualmente
 
-- cada municipio e calculado separadamente em cada ano;
-- nao existe agregacao entre municipios selecionados;
-- o valor municipal e a media aritmetica dos indices calculaveis das escolas elegiveis daquele municipio e ano;
-- registros sem nenhum indicador valido nao entram na media e permanecem na contagem de cobertura;
-- a regra so pode ser marcada como confirmada depois da DAD07.
+- A serie manual usa a media geral das escolas elegiveis do municipio.
+- Uma escola-alvo nao e excluida dessa serie apenas por tambem estar selecionada.
+- A referencia automatica e a serie manual permanecem separadas quando apontam
+  para o mesmo municipio.
+- Elas tambem permanecem separadas quando seus valores numericos forem iguais.
+- O frontend diferencia a serie manual com linha solida e a referencia
+  automatica com linha tracejada, alem de consolidar os valores no tooltip.
 
-### 3.3 Quantidade de linhas da escola e de sua referencia
+### 3.4 Dados ausentes e falhas parciais
 
-A REQ06 afirma que multiplas escolas devem ser comparadas com suas respectivas
-referencias territoriais, mas o cenario BDD conta apenas os alvos selecionados
-como linhas.
+- `NULL` permanece `null`; nao deve ser convertido em zero.
+- A falta de indice da escola em um ano interrompe somente a linha da escola.
+- A referencia automatica continua visivel quando possuir dados validos.
+- Uma falha ou ausencia que afete uma serie nao bloqueia as demais series.
+- Codigo invalido ou entidade inexistente gera erro HTTP especifico.
+- Denominador zero gera `null` no valor correspondente e metadado explicativo.
 
-Decisao provisoria deste rascunho:
+### 3.5 Cobertura
 
-- `series` contem somente os alvos escolhidos;
-- a referencia municipal anual da escola e retornada em `referencia_territorial`;
-- o frontend pode mostrar a referencia no tooltip e no painel detalhado;
-- uma futura decisao pode permitir desenhar a referencia como linha auxiliar,
-  sem altera-la para uma serie principal nem mistura-la com outros municipios.
+- O limiar de 60% aplica-se exclusivamente aos pontos de escola.
+- Cobertura escolar exatamente igual a 60% nao gera alerta.
+- Cobertura escolar abaixo de 60% gera alerta, mas nao oculta o valor calculado.
+- Referencias municipais e municipios manuais exibem suas coberturas, mas nao
+  recebem automaticamente o mesmo alerta escolar.
 
 ## 4. Rota proposta
 
@@ -94,9 +114,7 @@ Decisao provisoria deste rascunho:
 GET /infraestrutura/analise-temporal/comparacao-multipla
 ```
 
-### Parametro de consulta
-
-O parametro `alvo` e repetivel e preserva a ordem escolhida pelo usuario.
+O parametro `alvo` e repetivel e preserva a ordem da selecao manual.
 
 ```http
 GET /infraestrutura/analise-temporal/comparacao-multipla?alvo=escola:15012345&alvo=municipio:1501402&alvo=municipio:1500800
@@ -106,26 +124,24 @@ GET /infraestrutura/analise-temporal/comparacao-multipla?alvo=escola:15012345&al
 |---|---|---:|---|
 | `alvo` | texto repetivel | 1 a 3 | `escola:{codigo_inep}` ou `municipio:{codigo_ibge}` |
 
-Regras de validacao:
+Validacoes:
 
 - escola usa codigo INEP com oito digitos;
-- municipio usa codigo IBGE positivo conhecido pela base;
-- o mesmo alvo nao pode aparecer mais de uma vez;
-- escola e municipio com codigos numericamente iguais continuam sendo alvos distintos;
-- a ordem da resposta acompanha a ordem dos parametros `alvo`;
-- requisicao sem alvo, com mais de tres alvos, com tipo desconhecido ou formato invalido retorna `422`;
+- municipio usa codigo IBGE positivo e conhecido pela base;
+- o mesmo alvo manual nao pode aparecer mais de uma vez;
+- escola e municipio sao tipos distintos;
+- requisicao sem alvo ou com mais de tres alvos retorna `422`;
+- tipo desconhecido ou formato invalido retorna `422`;
+- entidade inexistente retorna `404`;
 - o periodo permanece fixo em 2022, 2023, 2024 e 2025.
-
-O formato tipado evita dois parametros independentes e torna explicito que o
-limite provisorio e aplicado ao total da selecao mista.
 
 ## 5. Estrutura de sucesso
 
 ### `200 OK`
 
-O exemplo e estrutural e abrevia os quatro pontos anuais e as 17 chaves de
-composicao. A resposta real deve conter os quatro anos em cada serie e todas as
-chaves definidas em `metodologia.indicadores`.
+O exemplo abaixo abrevia os quatro anos e as 17 chaves de composicao. A resposta
+real deve devolver todos os anos em cada serie e todas as chaves descritas em
+`metodologia.indicadores`.
 
 ```json
 {
@@ -136,58 +152,81 @@ chaves definidas em `metodologia.indicadores`.
       "homologada": false,
       "anos": [2022, 2023, 2024, 2025],
       "total_indicadores": 17,
-      "limite_alvos": 3,
-      "limite_alvos_status": "provisorio_req06",
+      "limite_alvos_manuais": 3,
+      "limite_series": 6,
+      "referencias_automaticas_consumem_limite_manual": false,
       "agregacao_entre_municipios": false,
-      "agregacao_municipal_status": "pendente_dad07",
-      "cobertura_minima_percentual": null,
+      "limiar_alerta_escola_percentual": 60.0,
+      "limiar_aplica_se_a_referencias_municipais": false,
       "precisao_percentual_casas": 2,
       "avisos": [
-        "Metodologia provisoria e pendente de homologacao.",
+        "Metodologia ainda sujeita a homologacao final.",
         "Municipios sao calculados individualmente e nao formam uma media combinada."
       ]
     },
     "selecao": {
-      "quantidade": 2,
-      "alvos": ["escola:15012345", "municipio:1501402"]
+      "quantidade_alvos_manuais": 2,
+      "alvos_manuais": [
+        "escola:15012345",
+        "municipio:1501402"
+      ],
+      "quantidade_referencias_automaticas": 1,
+      "quantidade_series": 3
     },
     "series": [
       {
         "id": "escola:15012345",
         "tipo": "escola",
+        "origem": "selecao_manual",
         "entidade": {
           "codigo": 15012345,
           "nome": "EMEF Exemplo"
         },
-        "situacao": "encontrado",
+        "rotulo": "EMEF Exemplo",
+        "estilo_sugerido": "linha_solida",
         "pontos": [
           {
             "ano": 2022,
             "situacao": "disponivel",
             "indice_percentual": 76.47,
             "cobertura_percentual": 100.0,
-            "referencia_territorial": {
-              "tipo": "municipio_historico",
-              "codigo": 1501402,
-              "nome": "Belem",
-              "media_percentual": 64.71,
-              "quantidade_escolas_validas": 85,
-              "quantidade_escolas_total": 94,
-              "cobertura_percentual": 90.43
-            },
+            "alerta_cobertura": false,
             "composicao": {
-              "escola": {
-                "in_agua_potavel": 1
-              },
-              "referencia": {
-                "in_agua_potavel": {
-                  "quantidade_presentes": 80,
-                  "quantidade_validos": 83,
-                  "quantidade_sem_dados": 11,
-                  "quantidade_escolas_referencia": 94,
-                  "percentual_presentes": 96.39,
-                  "cobertura_percentual": 88.3
-                }
+              "in_agua_potavel": 1
+            }
+          }
+        ]
+      },
+      {
+        "id": "referencia-escola:15012345",
+        "tipo": "referencia_municipal_automatica",
+        "origem": "escola:15012345",
+        "entidade_referenciada": {
+          "codigo": 15012345,
+          "nome": "EMEF Exemplo"
+        },
+        "rotulo": "Referencia municipal da EMEF Exemplo",
+        "estilo_sugerido": "linha_tracejada",
+        "pontos": [
+          {
+            "ano": 2022,
+            "situacao": "disponivel",
+            "municipio_historico": {
+              "codigo": 1501402,
+              "nome": "Belem"
+            },
+            "indice_percentual": 64.71,
+            "cobertura_percentual": 90.43,
+            "escola_excluida": 15012345,
+            "quantidade_escolas_validas": 85,
+            "quantidade_escolas_referencia": 94,
+            "composicao": {
+              "in_agua_potavel": {
+                "quantidade_presentes": 80,
+                "quantidade_validos": 83,
+                "quantidade_sem_dados": 11,
+                "percentual_presentes": 96.39,
+                "cobertura_percentual": 88.3
               }
             }
           }
@@ -195,31 +234,29 @@ chaves definidas em `metodologia.indicadores`.
       },
       {
         "id": "municipio:1501402",
-        "tipo": "municipio",
+        "tipo": "municipio_manual",
+        "origem": "selecao_manual",
         "entidade": {
           "codigo": 1501402,
           "nome": "Belem"
         },
-        "situacao": "encontrado",
+        "rotulo": "Belem",
+        "estilo_sugerido": "linha_solida",
         "pontos": [
           {
             "ano": 2022,
             "situacao": "disponivel",
             "indice_percentual": 65.02,
-            "cobertura_percentual": 90.43,
+            "cobertura_percentual": 90.53,
             "quantidade_escolas_validas": 86,
-            "quantidade_escolas_total": 95,
-            "referencia_territorial": null,
+            "quantidade_escolas_referencia": 95,
             "composicao": {
-              "municipio": {
-                "in_agua_potavel": {
-                  "quantidade_presentes": 81,
-                  "quantidade_validos": 84,
-                  "quantidade_sem_dados": 11,
-                  "quantidade_escolas_referencia": 95,
-                  "percentual_presentes": 96.43,
-                  "cobertura_percentual": 88.42
-                }
+              "in_agua_potavel": {
+                "quantidade_presentes": 81,
+                "quantidade_validos": 84,
+                "quantidade_sem_dados": 11,
+                "percentual_presentes": 96.43,
+                "cobertura_percentual": 88.42
               }
             }
           }
@@ -232,192 +269,118 @@ chaves definidas em `metodologia.indicadores`.
 
 ## 6. Semantica das series
 
-### 6.1 Serie de escola
+### 6.1 Escola
 
-- usa o registro historico da escola em cada ano;
-- usa o municipio registrado naquele mesmo ano como referencia;
-- exclui a escola selecionada das contagens e da media da referencia;
-- preserva `0`, `1` e `null` na composicao individual;
-- diferencia escola inexistente, ano sem registro e registro com 17 valores `null`;
-- segue a composicao e as regras propostas pela BE09.
+- Representa um alvo escolhido manualmente.
+- Devolve os quatro anos, mesmo que algum ponto tenha `indice_percentual: null`.
+- A composicao individual usa `1`, `0` ou `null` para cada indicador.
+- O alerta de 60% e avaliado somente nessa serie.
 
-### 6.2 Serie de municipio
+### 6.2 Referencia municipal automatica
 
-- usa somente escolas pertencentes ao municipio no ano consultado;
-- nao combina escolas de municipios diferentes;
-- nao exclui escola apenas porque ela tambem foi selecionada como outro alvo;
-- expoe total de escolas, quantidade valida e cobertura;
-- expoe a composicao percentual por indicador como `X de Y escolas`;
-- usa formula de agregacao marcada como provisoria ate a DAD07.
+- E criada para cada escola escolhida.
+- Nao conta no limite de tres alvos manuais.
+- Usa o municipio historico da escola em cada ano.
+- Exclui somente a escola que originou a referencia.
+- Duas referencias do mesmo municipio continuam separadas quando suas escolas
+  de origem forem diferentes.
+- Nao recebe automaticamente o alerta escolar de 60%.
 
-### 6.3 Selecao mista
+### 6.3 Municipio manual
 
-- cada alvo e processado de forma independente;
-- a indisponibilidade de um ponto anual nao impede as outras series;
-- nao existe media global dos alvos;
-- o mesmo municipio pode aparecer como alvo principal e como referencia historica de uma escola;
-- essa repeticao semantica nao e removida automaticamente.
+- Representa um municipio escolhido diretamente pelo usuario.
+- Usa a media geral das escolas elegiveis daquele municipio e ano.
+- Nao exclui escolas apenas porque elas tambem aparecem na selecao manual.
+- Nao e agregado com outros municipios escolhidos.
+- Permanece separado de uma referencia automatica do mesmo territorio.
 
-## 7. Dados ausentes e cobertura
+## 7. Composicao e denominadores
 
-Cada serie contem sempre os anos de 2022 a 2025. Pontos ausentes nao sao
-removidos do array.
+Cada indicador territorial deve informar, por ano:
 
-Situacoes propostas para um ponto:
+- `quantidade_presentes`;
+- `quantidade_validos`;
+- `quantidade_sem_dados`;
+- `percentual_presentes`;
+- `cobertura_percentual`.
 
-| Situacao | Significado |
-|---|---|
-| `disponivel` | Existe valor calculavel para o alvo no ano. |
-| `sem_registro` | Nao existe registro historico seguro para o alvo no ano. |
-| `sem_dados` | Existe registro, mas nao ha indicador valido para o calculo. |
-| `sem_referencia` | A escola possui indice, mas a referencia territorial nao possui valor calculavel. |
+Formulas propostas:
+
+```text
+percentual_presentes = quantidade_presentes / quantidade_validos * 100
+cobertura_percentual = quantidade_validos / quantidade_escolas_referencia * 100
+```
 
 Regras:
 
-- `null` nunca e convertido automaticamente em zero;
-- uma lacuna interrompe apenas o trecho daquela serie no grafico;
-- outras series validas continuam visiveis;
-- cobertura baixa nao bloqueia a resposta;
-- o alerta de `60%` da BE09 aplica-se somente a cobertura da escola selecionada;
-- nao se aplica automaticamente o mesmo alerta a municipios;
-- denominador zero produz percentual `null`, nunca `0%`;
-- contagens permanecem inteiras e percentuais sao arredondados somente na saida.
+- `quantidade_escolas_referencia` exclui a escola-alvo apenas nas referencias
+  automaticas;
+- no municipio manual, a quantidade considera a rede elegivel completa;
+- `quantidade_validos = 0` produz `percentual_presentes: null`;
+- `quantidade_escolas_referencia = 0` produz `cobertura_percentual: null`;
+- cada serie conserva seu proprio denominador;
+- valores sao arredondados para duas casas apenas na apresentacao final.
 
-## 8. Precisao
+## 8. Erros
 
-- calculos intermediarios usam razoes exatas;
-- percentuais e diferencas usam duas casas decimais na resposta;
-- arredondamento ocorre apenas na apresentacao;
-- valores arredondados nao alimentam calculos posteriores;
-- `2/3 - 1/3` resulta em `33.33`, nao `33.34`;
-- media de `0` e `2/3` resulta em `33.33`.
+| Status | Condicao |
+|---:|---|
+| `422` | nenhum alvo, mais de tres alvos, duplicidade, tipo ou formato invalido |
+| `404` | escola ou municipio solicitado nao existe |
+| `500` | falha interna inesperada |
+| `503` | fonte de dados temporariamente indisponivel |
 
-## 9. Validacao e erros
+Quando uma entidade solicitada for invalida, a requisicao inteira deve falhar. A
+regra de falha parcial aplica-se aos pontos temporais de entidades validas, e nao
+a codigos inexistentes ou malformados.
 
-| HTTP | Codigo | Quando ocorre |
-|---:|---|---|
-| `422` | `invalid_selection` | Sem alvo, mais de tres alvos, duplicidade, tipo desconhecido ou codigo malformado. |
-| `404` | `target_not_found` | Pelo menos um alvo solicitado nao existe no cadastro. |
-| `500` | `internal_error` | Falha interna inesperada. |
-| `503` | `warehouse_unavailable` | Dependencia de dados indisponivel. |
+## 9. Casos obrigatorios de validacao futura
 
-Corpo proposto para selecao invalida:
+1. Tres municipios geram tres series.
+2. Uma escola e dois municipios geram quatro series.
+3. Duas escolas e um municipio geram cinco series.
+4. Tres escolas geram seis series.
+5. Cada escola gera sua propria referencia com exclusao individual.
+6. Duas escolas do mesmo municipio mantem referencias separadas.
+7. Municipio manual e referencia automatica do mesmo territorio permanecem
+   separados, mesmo quando os valores forem iguais.
+8. O tooltip da referencia usa o municipio historico correto de cada ano.
+9. Escola sem indice em um ano nao oculta uma referencia municipal valida.
+10. `NULL` nao e transformado em zero.
+11. Cobertura escolar exatamente em 60% nao gera alerta.
+12. Cobertura escolar abaixo de 60% gera alerta sem ocultar o indice.
+13. O limiar de 60% nao e aplicado automaticamente a series municipais.
+14. Denominador zero retorna percentual `null`.
+15. Uma falha de ponto em uma serie nao bloqueia as demais.
 
-```json
-{
-  "code": "invalid_selection",
-  "message": "Selecione de 1 a 3 alvos distintos.",
-  "details": {
-    "limite": 3,
-    "recebidos": 4
-  }
-}
-```
+## 10. Criterios de aceite da BE11
 
-Corpo proposto para alvo inexistente:
+- [x] Rota e formato dos parametros propostos.
+- [x] Limite de tres alvos manuais formalizado.
+- [x] Limite de seis series formalizado.
+- [x] Referencias municipais automaticas representadas como series separadas.
+- [x] Exclusao individual da escola-alvo especificada.
+- [x] Municipio historico preservado por ano.
+- [x] Diferenca entre municipio manual e referencia automatica documentada.
+- [x] Tratamento de `null`, falhas parciais, cobertura e denominador documentado.
+- [x] Casos minimos de validacao futura listados.
+- [x] Implementacao funcional identificada como fora do escopo desta historia.
+- [ ] Revisao multidisciplinar e atualizacao formal da REQ06 no Taiga.
 
-```json
-{
-  "code": "target_not_found",
-  "message": "Um ou mais alvos nao foram encontrados.",
-  "details": {
-    "alvos": ["escola:15099999"]
-  }
-}
-```
+## 11. Pendencias antes da implementacao funcional
 
-A validacao e atomica: alvo inexistente retorna `404` e nenhuma serie parcial e
-entregue. Ausencia de dados historicos para alvo existente retorna `200` com os
-pontos anuais correspondentes em estado indisponivel.
+1. Requisitos deve incorporar no Taiga os esclarecimentos que substituem a
+   leitura antiga de exatamente tres linhas.
+2. Dados deve concluir a revisao da DAD07 e confirmar os denominadores e o
+   universo municipal.
+3. Backend deve transformar esta proposta em contrato versionado somente depois
+   da homologacao das regras.
+4. Frontend deve validar legenda, diferenciacao visual e tooltip no prototipo.
+5. QA deve transformar os casos da secao 9 em cenarios automatizados.
 
-## 10. Desempenho, paginacao e cache
+## 12. Relacao com a Sprint 4
 
-### Paginacao
-
-Nao e necessaria nesta proposta porque:
-
-- existem no maximo tres alvos;
-- cada alvo possui exatamente quatro pontos anuais;
-- a ordem da selecao deve ser preservada.
-
-Se o limite crescer no futuro, a decisao de paginar deve gerar nova versao do
-contrato e nao pode remover silenciosamente series solicitadas.
-
-### Consultas e paralelismo
-
-- evitar uma consulta separada para cada indicador;
-- buscar os 17 indicadores em lote por alvo e ano;
-- reutilizar agregados quando uma referencia municipal tambem for alvo principal;
-- limitar o paralelismo para nao multiplicar conexoes ao warehouse;
-- medir o tamanho da resposta com as composicoes completas antes da implementacao.
-
-### Cache
-
-O metodo `GET` permite cache, mas a politica nao e obrigatoria nesta historia de
-descoberta. Se adotada:
-
-- a chave inclui versao metodologica e a lista ordenada de alvos;
-- selecoes em ordens diferentes nao podem alterar os valores calculados;
-- o servidor pode normalizar a chave de calculo, preservando a ordem somente na resposta;
-- a invalidacao ocorre quando os dados anuais ou a versao metodologica mudarem;
-- `ETag` e preferivel a definir um tempo longo de validade sem governanca dos dados.
-
-## 11. Compatibilidade e versionamento
-
-O endpoint vigente permanece inalterado:
-
-```http
-GET /infraestrutura/analise-temporal/escolas/{co_entidade}/comparacao-municipio
-```
-
-A nova rota nao substitui a atual e nao altera seus schemas. Isso permite:
-
-- manter clientes da Sprint 3 funcionando;
-- implementar e testar a comparacao multipla separadamente;
-- comparar a serie de uma escola nas duas rotas durante a conciliacao;
-- remover a rota antiga somente em uma futura versao com migracao anunciada.
-
-A versao metodologica fica no corpo da resposta. Mudanca de formula, limite de
-alvos, conjunto de indicadores ou semantica de cobertura exige nova versao.
-
-## 12. Casos de validacao propostos
-
-1. uma escola valida retorna quatro anos e o municipio historico correto em cada ano;
-2. tres municipios validos retornam tres series independentes;
-3. uma escola e dois municipios retornam exatamente tres series principais;
-4. o quarto alvo retorna `422` e nao altera a selecao anterior no frontend;
-5. alvo duplicado retorna `422`;
-6. uma lacuna anual interrompe somente a serie afetada;
-7. municipio sem valor calculavel retorna ponto nulo sem bloquear outros municipios;
-8. escola existente sem historico retorna quatro pontos `sem_registro`;
-9. alvo inexistente retorna `404` com a lista dos identificadores ausentes;
-10. municipio selecionado tambem usado como referencia de escola nao gera media combinada;
-11. `null` permanece `null` em todas as composicoes;
-12. denominador zero produz percentual `null`;
-13. precisao segue os casos `33.33` definidos na BE09;
-14. composicao municipal apresenta `quantidade_presentes`, `quantidade_validos`, `quantidade_sem_dados` e percentual por indicador;
-15. a resposta de uma escola e conciliada com o endpoint vigente para os mesmos dados.
-
-## 13. Criterios de aceite da BE11
-
-- [x] Rota e parametros propostos.
-- [x] Resposta proposta com series, referencias territoriais e metadados.
-- [x] Regras de dados ausentes, cobertura e precisao documentadas.
-- [x] Casos de validacao e respostas de erro descritos.
-- [x] Desempenho, paginacao e cache avaliados.
-- [x] Compatibilidade com o endpoint vigente documentada.
-- [ ] Limite total ou independente confirmado por Requisitos.
-- [ ] Formula e denominadores municipais confirmados pela DAD07.
-- [ ] Quantidade de linhas auxiliares da referencia confirmada por Requisitos e Frontend.
-- [ ] Proposta revisada por Dados, Requisitos, Frontend e QA.
-- [ ] Revisao e evidencias registradas no Taiga.
-
-## 14. Fora de escopo da BE11
-
-- implementar rota, schemas, servico ou repositorio;
-- alterar o endpoint vigente;
-- criar prototipo visual;
-- implementar cache ou paginacao;
-- ampliar o periodo alem de 2022 a 2025;
-- comparar estados ou regioes;
-- homologar metodologia ou fonte de dados.
+A Sprint 4 entrega a composicao detalhada Escola x Municipio por meio de BE09,
+BE10 e BE12. A comparacao multipla permanece como descoberta preparada para uma
+sprint futura. Assim, a conclusao da BE11 significa que a proposta tecnica esta
+documentada e revisavel, e nao que o endpoint multiplo ja exista.
