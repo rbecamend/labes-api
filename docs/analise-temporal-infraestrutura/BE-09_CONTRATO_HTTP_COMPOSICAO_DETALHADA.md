@@ -6,7 +6,7 @@
 
 **Revisao esperada:** Backend, Dados, Requisitos, Frontend e QA
 
-**Estado:** rascunho tecnico revisado com a auditoria agregada da DAD06; amostra manual, casos de fronteira e revisao multidisciplinar ainda pendentes
+**Estado:** contrato tecnico implementado pela BE12 e validado por testes automatizados; metodologia provisoria e amostra empirica ampliada da DAD06 ainda pendentes
 
 **Versao proposta:** `infraestrutura-v3-provisoria`
 
@@ -34,17 +34,20 @@ nao devem ser apresentados como indicadores oficiais ou homologados.
 
 ## 2. Fontes e precedencia
 
-Este rascunho foi elaborado a partir das seguintes fontes:
+Este contrato foi elaborado e revisado a partir das seguintes fontes:
 
 1. contrato HTTP v2 vigente e implementacao integrada da Sprint 3;
 2. relatorio REQ05 anexado a historia #54 do Taiga;
 3. criterios de aceite das historias REQ05, DAD06 e BE09;
 4. [DAD06 - Denominadores e amostra de validacao](https://github.com/rbecamend/labes-api/blob/5af47d4/docs/analise-temporal-infraestrutura/DAD-06_DENOMINADORES_E_AMOSTRA_VALIDACAO.md);
-5. [DAD06 - Relatorio tecnico final](https://github.com/rbecamend/labes-api/blob/5af47d4/docs/analise-temporal-infraestrutura/DAD-06_RELATORIO_TECNICO_FINAL.md), commit `5af47d4` e PR #14;
+5. [DAD06 - Relatorio tecnico final](https://github.com/rbecamend/labes-api/blob/5af47d4/docs/analise-temporal-infraestrutura/DAD-06_RELATORIO_TECNICO_FINAL.md), commit `5af47d4` e PR #14, integrada na branch compartilhada;
 6. [DAD-05 - Contrato metodologico](DAD-05_CONTRATO_METODOLOGICO.md);
 7. [DAD-02 - Matriz de comparabilidade temporal](DAD-02_MATRIZ_COMPARABILIDADE_TEMPORAL.md);
 8. decisao operacional provisoria da Sprint 3;
-9. codigo e testes vigentes na branch compartilhada da Sprint 3.
+9. codigo e testes vigentes na branch compartilhada da Sprint 3;
+10. implementacao da agregacao municipal da BE10, integrada pela PR #15;
+11. implementacao final da composicao detalhada da BE12, integrada pela PR #18;
+12. cenarios automatizados de QA06, com 33 testes aprovados na PR #3 do repositorio de QA.
 
 Em caso de divergencia, a implementacao nao deve escolher uma regra
 silenciosamente. A divergencia deve permanecer registrada ate a revisao dos
@@ -74,7 +77,8 @@ Decisao consolidada para este contrato:
 - a DAD06 valida empiricamente a aplicacao da regra e os denominadores agregados, mas nao altera o valor sem uma nova decisao de Requisitos;
 - o alerta usa somente a cobertura da escola e nao e aplicado automaticamente a cobertura municipal por indicador;
 - a regra nao bloqueia o calculo nem remove dados;
-- o caso exatamente igual a `60%` deve ser coberto por teste sintetico, pois nao apareceu na amostra Q8B.
+- o caso exatamente igual a `60%` nao apareceu na amostra Q8B, mas foi coberto por testes sinteticos de Backend e QA;
+- denominador zero tambem foi coberto sinteticamente e preserva `null` na saida.
 
 ## 4. Rota oficial
 
@@ -449,7 +453,7 @@ Para a escola selecionada:
 - `limiar_alerta_cobertura_percentual` vale `60.0`;
 - `limiar_alerta_cobertura_status` vale `confirmado_req05`;
 - `limiar_alerta_cobertura_escopo` vale `escola_selecionada`;
-- `validacao_empirica_cobertura_status` vale `parcial_dad06_q8b`, pois a auditoria agregada foi concluida, mas nao encontrou caso exatamente igual a `60%` e nao substitui a amostra manual pendente;
+- `validacao_empirica_cobertura_status` vale `parcial_dad06_q8b`, pois a auditoria agregada foi concluida e os casos ausentes foram cobertos sinteticamente, mas ela nao substitui a amostra manual pendente;
 - a comparacao usa a razao exata, antes do arredondamento, e o operador
   estritamente menor que o limiar;
 - cobertura exatamente igual a `60.0` nao gera alerta;
@@ -467,9 +471,10 @@ Um alerta municipal somente pode ser adicionado depois de decisao explicita de
 Requisitos e validacao de Dados.
 
 A DAD06 confirmou a reconciliacao matematica dos agregados e registrou cenarios
-abaixo e acima de `60%`. O caso exatamente igual ao limiar e a amostra manual
-ampliada continuam pendentes e devem ser cobertos antes de este documento ser
-marcado como pronto.
+abaixo e acima de `60%`. O caso exatamente igual ao limiar e o denominador zero
+foram cobertos por testes sinteticos de Backend e QA. A amostra manual ampliada
+continua pendente como evidencia empirica complementar, sem impedir o uso do
+contrato tecnico com o estado metodologico explicitamente provisorio.
 
 ### Evidencia empirica incorporada da DAD06
 
@@ -482,9 +487,9 @@ marcado como pronto.
 - nao foram observados casos sem pares nem denominadores entre uma e quatro escolas comparadoras nesse recorte.
 
 Esses resultados validam o comportamento agregado observado, mas nao provam os
-casos ausentes da amostra. Casos de fronteira, denominador zero, valores
-invalidos e duplicidades continuam exigindo testes sinteticos e decisao de
-tratamento publico antes da implementacao.
+casos ausentes da amostra. Os casos de fronteira e denominador zero foram
+cobertos sinteticamente. Valores invalidos e duplicidades permanecem sujeitos
+a tratamento explicito, sem conversao silenciosa.
 
 ## 11. Precisao e arredondamento
 
@@ -592,10 +597,12 @@ Os corpos e as mensagens permanecem iguais aos da versao 2.
 - [x] Limiar de `60%` confirmado pelo REQ05 para a escola selecionada.
 - [x] Escopo do alerta separado da cobertura municipal por indicador.
 - [x] Auditoria agregada Q8B da DAD06 revisada e incorporada ao contrato.
-- [ ] Caso exatamente igual a `60%` e demais fronteiras validados por testes sinteticos.
+- [x] Caso exatamente igual a `60%` e denominador zero validados por testes sinteticos.
 - [ ] Amostra manual reproduzivel de 2022 a 2025 revisada por Dados.
-- [ ] Exemplo completo de quatro anos validado por Dados, Frontend e QA.
-- [ ] Revisao tecnica registrada no Taiga.
+- [x] Exemplo completo de quatro anos validado localmente pelo Backend.
+- [x] Implementacao da BE12 e testes automatizados conferidos contra este contrato.
+- [ ] Integracao completa validada por Dados, Frontend e QA.
+- [ ] Revisao tecnica registrada no Taiga apos a integracao desta branch.
 
 ## 17. Dependencias para conclusao
 
@@ -609,13 +616,13 @@ A auditoria agregada confirmou:
 - exclusao da escola selecionada;
 - reconciliacao matematica dos agregados Q8B.
 
-Ainda faltam para a conclusao da BE09:
+Situacao apos a revisao:
 
-- integrar ou revisar formalmente a PR #14 na branch compartilhada;
-- disponibilizar a amostra manual ampliada de 2022 a 2025;
-- cobrir por testes sinteticos o caso exatamente igual a `60%`, denominador zero e outros casos ausentes da Q8B;
-- decidir o tratamento publico de valores invalidos e duplicidades, sem conversao silenciosa;
-- registrar a homologacao metodologica ou manter explicitamente o estado provisorio.
+- a PR #14 foi revisada e integrada na branch compartilhada;
+- a PR #16 complementa a DAD06, mas a amostra empirica ampliada continua parcial;
+- cobertura exatamente igual a `60%` e denominador zero foram cobertos por testes sinteticos;
+- valores invalidos e duplicidades nao devem sofrer conversao silenciosa;
+- a metodologia permanece explicitamente provisoria ate homologacao final.
 
 ### Requisitos
 
@@ -624,12 +631,13 @@ com o REQ05 e com a wiki ja conciliada.
 
 ### Frontend
 
-Frontend deve revisar nomes, nulabilidade e consumo dos novos campos antes da
-implementacao da BE10.
+Frontend deve consumir os campos implementados pela BE12, preservar a
+nulabilidade e validar a apresentacao integrada com a API.
 
 ### QA
 
-QA deve revisar as invariantes, os casos de borda e os exemplos de precisao.
+QA06 cobriu os casos sinteticos de fronteira e denominador zero. Ainda deve ser
+registrada a validacao HTTP integrada da resposta v3 com o frontend.
 
 ## 18. Fora de escopo da BE09
 
@@ -641,5 +649,6 @@ QA deve revisar as invariantes, os casos de borda e os exemplos de precisao.
 - alterar o conjunto de 17 indicadores;
 - homologar metodologia ou base de dados.
 
-Essas mudancas devem ocorrer em historias e branches proprias depois da revisao
-deste contrato.
+As mudancas funcionais da composicao foram tratadas nas historias e branches
+proprias BE10 e BE12. Comparacao multipla, classificacoes e homologacao
+metodologica permanecem fora do escopo da BE09.
