@@ -19,19 +19,42 @@ ROTA = (
 
 
 def _ponto(ano: int) -> dict:
+    composicao_escola = {
+        chave: 1 if indice < 13 else 0
+        for indice, chave in enumerate(INDICADORES_COMPARACAO_INFRAESTRUTURA)
+    }
+    composicao_municipal = {
+        chave: {
+            "quantidade_presentes": 0,
+            "quantidade_validos": 0,
+            "quantidade_sem_dados": 0,
+            "quantidade_escolas_referencia": 0,
+            "percentual_presentes": None,
+            "cobertura_percentual": None,
+        }
+        for chave in INDICADORES_COMPARACAO_INFRAESTRUTURA
+    }
     return {
         "ano": ano,
         "situacao": "sem_pares_municipio",
+        "municipio_referencia": {
+            "co_municipio": 1501402,
+            "no_municipio": "Belém",
+        },
+        "registro_historico_disponivel": True,
         "indice_escola_percentual": 76.47,
         "quantidade_indicadores_presentes": 13,
         "quantidade_indicadores_validos": 17,
         "total_indicadores": 17,
         "cobertura_indicadores_percentual": 100.0,
+        "cobertura_indicadores_reduzida": False,
         "media_municipal_percentual": None,
         "diferenca_pontos_percentuais": None,
         "quantidade_pares_validos": 0,
         "denominador_pares": 0,
         "cobertura_pares_percentual": None,
+        "composicao_escola": composicao_escola,
+        "composicao_municipal": composicao_municipal,
     }
 
 
@@ -48,12 +71,21 @@ def _resposta_valida() -> dict:
                 "no_municipio": "Belém",
             },
             "metodologia": {
-                "versao": "infraestrutura-v2-provisoria",
+                "versao": "infraestrutura-v3-provisoria",
                 "homologada": False,
                 "anos": list(ANOS_COMPARACAO_INFRAESTRUTURA),
                 "indicadores": list(INDICADORES_COMPARACAO_INFRAESTRUTURA),
                 "total_indicadores": 17,
                 "cobertura_minima_percentual": None,
+                "limiar_alerta_cobertura_percentual": 60.0,
+                "limiar_alerta_cobertura_status": "confirmado_req05",
+                "limiar_alerta_cobertura_escopo": "escola_selecionada",
+                "validacao_empirica_cobertura_status": "parcial_dad06_q8b",
+                "bloqueia_resultado_por_cobertura": False,
+                "avisos": [
+                    "Metodologia provisória.",
+                    "O índice não representa qualidade escolar.",
+                ],
                 "observacao": "Metodologia provisória e não homologada.",
             },
             "serie": [_ponto(ano) for ano in ANOS_COMPARACAO_INFRAESTRUTURA],
@@ -98,7 +130,7 @@ async def _get(servico: _Servico, caminho: str):
         return await cliente.get(caminho)
 
 
-async def test_rota_retorna_contrato_v2_e_chama_servico():
+async def test_rota_retorna_contrato_v3_e_chama_servico():
     servico = _Servico(resposta=_resposta_valida())
 
     resposta = await _get(servico, ROTA)

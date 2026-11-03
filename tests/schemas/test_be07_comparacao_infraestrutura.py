@@ -10,20 +10,53 @@ from app.schemas.infraestrutura import (
 )
 
 
+def _composicao_escola(*, presentes: int = 13, validos: int = 17) -> dict:
+    return {
+        chave: 1 if indice < presentes else 0 if indice < validos else None
+        for indice, chave in enumerate(INDICADORES_COMPARACAO_INFRAESTRUTURA)
+    }
+
+
+def _composicao_municipal(
+    *, total: int = 94, presentes: int = 60, validos: int = 85
+) -> dict:
+    percentual = round(100 * presentes / validos, 2) if validos else None
+    cobertura = round(100 * validos / total, 2) if total else None
+    return {
+        chave: {
+            "quantidade_presentes": presentes,
+            "quantidade_validos": validos,
+            "quantidade_sem_dados": total - validos,
+            "quantidade_escolas_referencia": total,
+            "percentual_presentes": percentual,
+            "cobertura_percentual": cobertura,
+        }
+        for chave in INDICADORES_COMPARACAO_INFRAESTRUTURA
+    }
+
+
 def _ponto(ano: int, situacao: str = "disponivel") -> dict:
     return {
         "ano": ano,
         "situacao": situacao,
+        "municipio_referencia": {
+            "co_municipio": 1501402,
+            "no_municipio": "Belém",
+        },
+        "registro_historico_disponivel": True,
         "indice_escola_percentual": 76.47,
         "quantidade_indicadores_presentes": 13,
         "quantidade_indicadores_validos": 17,
         "total_indicadores": 17,
         "cobertura_indicadores_percentual": 100.0,
+        "cobertura_indicadores_reduzida": False,
         "media_municipal_percentual": 64.71,
         "diferenca_pontos_percentuais": 11.76,
         "quantidade_pares_validos": 85,
         "denominador_pares": 94,
         "cobertura_pares_percentual": 90.43,
+        "composicao_escola": _composicao_escola(),
+        "composicao_municipal": _composicao_municipal(),
     }
 
 
@@ -35,7 +68,9 @@ def _ponto_situacao(situacao: str) -> dict:
             quantidade_indicadores_presentes=0,
             quantidade_indicadores_validos=0,
             cobertura_indicadores_percentual=0.0,
+            cobertura_indicadores_reduzida=True,
             diferenca_pontos_percentuais=None,
+            composicao_escola=_composicao_escola(presentes=0, validos=0),
         )
     elif situacao == "sem_pares_validos":
         ponto.update(
@@ -43,6 +78,11 @@ def _ponto_situacao(situacao: str) -> dict:
             diferenca_pontos_percentuais=None,
             quantidade_pares_validos=0,
             cobertura_pares_percentual=0.0,
+            composicao_municipal=_composicao_municipal(
+                total=94,
+                presentes=0,
+                validos=0,
+            ),
         )
     elif situacao == "sem_pares_municipio":
         ponto.update(
@@ -51,6 +91,11 @@ def _ponto_situacao(situacao: str) -> dict:
             quantidade_pares_validos=0,
             denominador_pares=0,
             cobertura_pares_percentual=None,
+            composicao_municipal=_composicao_municipal(
+                total=0,
+                presentes=0,
+                validos=0,
+            ),
         )
     return ponto
 
@@ -68,12 +113,21 @@ def _resposta() -> dict:
                 "no_municipio": "Belém",
             },
             "metodologia": {
-                "versao": "infraestrutura-v2-provisoria",
+                "versao": "infraestrutura-v3-provisoria",
                 "homologada": False,
                 "anos": list(ANOS_COMPARACAO_INFRAESTRUTURA),
                 "indicadores": list(INDICADORES_COMPARACAO_INFRAESTRUTURA),
                 "total_indicadores": 17,
                 "cobertura_minima_percentual": None,
+                "limiar_alerta_cobertura_percentual": 60.0,
+                "limiar_alerta_cobertura_status": "confirmado_req05",
+                "limiar_alerta_cobertura_escopo": "escola_selecionada",
+                "validacao_empirica_cobertura_status": "parcial_dad06_q8b",
+                "bloqueia_resultado_por_cobertura": False,
+                "avisos": [
+                    "Metodologia provisória.",
+                    "O índice não representa qualidade escolar.",
+                ],
                 "observacao": "Metodologia provisória e não homologada.",
             },
             "serie": [_ponto(ano) for ano in ANOS_COMPARACAO_INFRAESTRUTURA],
@@ -81,7 +135,7 @@ def _resposta() -> dict:
     }
 
 
-def test_schema_valida_resposta_completa_do_contrato_v2():
+def test_schema_valida_resposta_completa_do_contrato_v3():
     resposta = ComparacaoInfraestruturaResponse.model_validate(_resposta())
 
     serializada = resposta.model_dump(mode="json")
@@ -106,6 +160,11 @@ def test_json_schema_expoe_metadados_anuais_no_openapi():
         "quantidade_pares_validos",
         "denominador_pares",
         "cobertura_pares_percentual",
+        "municipio_referencia",
+        "registro_historico_disponivel",
+        "cobertura_indicadores_reduzida",
+        "composicao_escola",
+        "composicao_municipal",
     } <= set(ponto["required"])
 
 
@@ -157,6 +216,11 @@ def test_schema_aceita_escola_sem_dados_com_ou_sem_pares():
         quantidade_pares_validos=0,
         denominador_pares=0,
         cobertura_pares_percentual=None,
+        composicao_municipal=_composicao_municipal(
+            total=0,
+            presentes=0,
+            validos=0,
+        ),
     )
 
     assert PontoComparacaoInfraestrutura.model_validate(
@@ -190,6 +254,11 @@ def test_schema_aceita_indice_e_cobertura_coerentes(
         quantidade_indicadores_presentes=presentes,
         quantidade_indicadores_validos=validos,
         cobertura_indicadores_percentual=cobertura,
+        cobertura_indicadores_reduzida=validos * 5 < 17 * 3,
+        composicao_escola=_composicao_escola(
+            presentes=presentes,
+            validos=validos,
+        ),
     )
 
     validado = PontoComparacaoInfraestrutura.model_validate(ponto)
@@ -203,10 +272,14 @@ def test_schema_aceita_anos_sinteticos_sem_observacao():
         ponto = _ponto_situacao("escola_sem_dados")
         ponto.update(
             ano=ANOS_COMPARACAO_INFRAESTRUTURA[indice],
+            municipio_referencia=None,
+            registro_historico_disponivel=False,
             media_municipal_percentual=None,
             quantidade_pares_validos=0,
             denominador_pares=0,
             cobertura_pares_percentual=None,
+            cobertura_indicadores_reduzida=False,
+            composicao_municipal=None,
         )
         payload["data"]["serie"][indice] = ponto
 
@@ -231,6 +304,11 @@ def test_schema_aceita_anos_sinteticos_sem_observacao():
                 "quantidade_indicadores_validos": 0,
                 "quantidade_indicadores_presentes": 0,
                 "cobertura_indicadores_percentual": 0.0,
+                "cobertura_indicadores_reduzida": True,
+                "composicao_escola": _composicao_escola(
+                    presentes=0,
+                    validos=0,
+                ),
             },
             "nulo sem indicadores válidos",
         ),
@@ -283,6 +361,13 @@ def test_schema_nao_subtrai_percentuais_arredondados_para_validar_diferenca():
         quantidade_pares_validos=1,
         denominador_pares=1,
         cobertura_pares_percentual=100.0,
+        cobertura_indicadores_reduzida=True,
+        composicao_escola=_composicao_escola(presentes=2, validos=3),
+        composicao_municipal=_composicao_municipal(
+            total=1,
+            presentes=1,
+            validos=1,
+        ),
     )
 
     assert (

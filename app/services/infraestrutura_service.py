@@ -15,6 +15,10 @@ from app.domain.infraestrutura import (
     InfraestruturaTemporalDependencia,
     TotalEscolas,
     calcular_serie_comparacao_infraestrutura,
+    cobertura_indicadores_reduzida,
+)
+from app.domain.infraestrutura_agregacao_municipal import (
+    agregar_indicadores_municipais,
 )
 from app.repositories.infraestrutura_repository import InfraestruturaRepository
 from app.services.chart_factory import ChartFactory
@@ -61,11 +65,17 @@ PAINEL_DESCRICAO = "painel_infraestrutura"
 MAPA_DESCRICAO = "mapa_infraestrutura"
 ANALISE_TEMPORAL_DESCRICAO = "analise_temporal_infraestrutura"
 COMPARACAO_MUNICIPIO_DESCRICAO = "comparacao_infraestrutura_escola_municipio"
-VERSAO_METODOLOGIA_COMPARACAO = "infraestrutura-v2-provisoria"
+VERSAO_METODOLOGIA_COMPARACAO = "infraestrutura-v3-provisoria"
 ANOS_COMPARACAO = (2022, 2023, 2024, 2025)
+LIMIAR_ALERTA_COBERTURA_PERCENTUAL = 60.0
 OBSERVACAO_METODOLOGIA_COMPARACAO = (
     "Metodologia provisória e não homologada. "
     "Os resultados não são indicadores oficiais."
+)
+AVISOS_METODOLOGIA_COMPARACAO = (
+    "Esta análise utiliza metodologia de cálculo em caráter provisório e "
+    "pendente de homologação.",
+    "O índice representa disponibilidade de infraestrutura, não qualidade escolar.",
 )
 TAB_PERCENT_ROW_HEIGHT_PX = 42
 TAB_PERCENT_HEADER_PX = 130
@@ -358,6 +368,9 @@ class InfraestruturaService:
             co_entidade=co_entidade,
             anos_comparaveis=ANOS_COMPARACAO,
         )
+        registros_com_municipio = [
+            registro for registro in registros if registro.co_municipio is not None
+        ]
         pares_por_registro = await asyncio.gather(
             *(
                 self._repository.find_pares_municipais(
@@ -365,9 +378,17 @@ class InfraestruturaService:
                     co_municipio=registro.co_municipio,
                     ano=registro.nu_ano_censo,
                 )
-                for registro in registros
+                for registro in registros_com_municipio
             )
         )
+        pares_por_ano = {
+            registro.nu_ano_censo: pares
+            for registro, pares in zip(
+                registros_com_municipio,
+                pares_por_registro,
+                strict=True,
+            )
+        }
         referencias = [
             par for pares_do_ano in pares_por_registro for par in pares_do_ano
         ]
@@ -381,13 +402,20 @@ class InfraestruturaService:
         resultados_por_ano = {
             resultado.ano: asdict(resultado) for resultado in resultados
         }
+        registros_por_ano = {
+            registro.nu_ano_censo: registro for registro in registros
+        }
         serie = [
-            resultados_por_ano.get(
-                ano,
-                self._ponto_comparacao_sem_dados(
-                    ano=ano,
-                    total_indicadores=len(indicadores),
-                ),
+            self._compor_ponto_comparacao(
+                resultado=resultados_por_ano[ano],
+                registro=registros_por_ano[ano],
+                pares=pares_por_ano.get(ano, []),
+                indicadores=indicadores,
+            )
+            if ano in resultados_por_ano
+            else self._ponto_comparacao_sem_dados(
+                ano=ano,
+                indicadores=indicadores,
             )
             for ano in ANOS_COMPARACAO
         ]
@@ -410,6 +438,14 @@ class InfraestruturaService:
                     "indicadores": list(indicadores),
                     "total_indicadores": len(indicadores),
                     "cobertura_minima_percentual": None,
+                    "limiar_alerta_cobertura_percentual": (
+                        LIMIAR_ALERTA_COBERTURA_PERCENTUAL
+                    ),
+                    "limiar_alerta_cobertura_status": "confirmado_req05",
+                    "limiar_alerta_cobertura_escopo": "escola_selecionada",
+                    "validacao_empirica_cobertura_status": "parcial_dad06_q8b",
+                    "bloqueia_resultado_por_cobertura": False,
+                    "avisos": list(AVISOS_METODOLOGIA_COMPARACAO),
                     "observacao": OBSERVACAO_METODOLOGIA_COMPARACAO,
                 },
                 "serie": serie,
@@ -418,21 +454,69 @@ class InfraestruturaService:
 
     @staticmethod
     def _ponto_comparacao_sem_dados(
-        *, ano: int, total_indicadores: int
+        *, ano: int, indicadores: tuple[str, ...]
     ) -> dict:
         return {
             "ano": ano,
             "situacao": "escola_sem_dados",
+            "municipio_referencia": None,
+            "registro_historico_disponivel": False,
             "indice_escola_percentual": None,
             "quantidade_indicadores_presentes": 0,
             "quantidade_indicadores_validos": 0,
-            "total_indicadores": total_indicadores,
+            "total_indicadores": len(indicadores),
             "cobertura_indicadores_percentual": 0.0,
+            "cobertura_indicadores_reduzida": False,
             "media_municipal_percentual": None,
             "diferenca_pontos_percentuais": None,
             "quantidade_pares_validos": 0,
             "denominador_pares": 0,
             "cobertura_pares_percentual": None,
+            "composicao_escola": {chave: None for chave in indicadores},
+            "composicao_municipal": None,
+        }
+
+    @staticmethod
+    def _compor_ponto_comparacao(
+        *,
+        resultado: dict,
+        registro,
+        pares: list,
+        indicadores: tuple[str, ...],
+    ) -> dict:
+        agregados = agregar_indicadores_municipais(
+            registro,
+            pares,
+            indicadores_esperados=indicadores,
+        )
+        return {
+            **resultado,
+            "municipio_referencia": (
+                {
+                    "co_municipio": registro.co_municipio,
+                    "no_municipio": registro.no_municipio,
+                }
+                if registro.co_municipio is not None
+                else None
+            ),
+            "registro_historico_disponivel": True,
+            "cobertura_indicadores_reduzida": (
+                cobertura_indicadores_reduzida(
+                    resultado["quantidade_indicadores_validos"],
+                    resultado["total_indicadores"],
+                )
+            ),
+            "composicao_escola": {
+                chave: registro.indicadores.get(chave) for chave in indicadores
+            },
+            "composicao_municipal": (
+                {
+                    chave: asdict(agregado)
+                    for chave, agregado in agregados.items()
+                }
+                if agregados is not None
+                else None
+            ),
         }
 
     # ========================================================================
