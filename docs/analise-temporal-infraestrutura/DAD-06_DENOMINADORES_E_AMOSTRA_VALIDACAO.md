@@ -6,7 +6,7 @@
 **Colaboradores:** Rebeca Mendonça, revisão de coerência com REQ05 e BE09.
 **Revisor e aprovação:** Rebeca Mendonça, revisão técnica documental em 02/11/2026. A aprovação metodológica permanece pendente.
 **Evidências examinadas:** implementação local em `app/domain/infraestrutura.py`, `app/repositories/infraestrutura_repository.py`, `app/services/infraestrutura_service.py` e `app/models/infraestrutura.py`; DAD01, DAD02, DAD05; matriz documental INEP; BE09 publicada na branch `docs/BE09-contrato-composicao-detalhada`, commit `88ae947`.
-**Rastreabilidade nesta revisão:** os cinco SQLs, quatro [CSVs agregados Q8B e seu manifesto](evidencias/dad06/MANIFESTO_EVIDENCIAS_Q8B.md) estão presentes em `evidencias/dad06/`. Os CSVs originais localizados em Downloads foram conferidos e copiados sem alteração. Saídas separadas de Q0–Q8, logs, planos `EXPLAIN`, data/hora e identificador de snapshot não foram localizados. Os resultados de Q0–Q8 continuam baseados no relato da auditoria anterior; esta revisão não executou SQL nem acessou PostgreSQL.
+**Rastreabilidade nesta revisão:** os cinco SQLs, quatro [CSVs agregados Q8B e seu manifesto](evidencias/dad06/MANIFESTO_EVIDENCIAS_Q8B.md) estão presentes em `evidencias/dad06/`. Os CSVs originais localizados em Downloads foram conferidos e copiados sem alteração. Saídas separadas de Q0–Q8, logs, planos `EXPLAIN`, data/hora e identificador de snapshot das exportações anteriores não foram localizados. Os resultados de Q0–Q8 continuam baseados no relato da auditoria anterior; a revisão documental inicial não acessou PostgreSQL. Esta complementação recontou [um agregado municipal/indicador](evidencias/dad06/06_amostra_manual_porto_de_moz_2025.md) diretamente na Silver, sem reexecutar Q0–Q8B.
 
 ## 1. Objetivo e escopo
 
@@ -86,7 +86,7 @@ Contagens são inteiras. As frações, a média e a subtração usam numeradores
 
 O arquivo `evidencias/dad06/01_consultas_select.sql` organiza Q0–Q8 e Q8B. Q0 confirma metadados; Q1 distingue grupos e linhas com `CO_ENTIDADE` nulo, duplicidades e registros com ano nulo, estes fora dos denominadores anuais. Q2 separa os quatro estados de cada indicador por ano; Q3 mede completude. Q4 distingue escola ausente da Silver de escola existente sem histórico em 2022–2025 e preserva o município histórico anual. Q5 enumera pares; Q6 produz composição municipal por indicador; Q7 calcula a média dos índices individuais; Q8 analisa um alvo e ano. Q8B percorre o universo por município, indicador e ano, simulando a exclusão de cada escola-alvo e registrando denominadores pequenos e grupos com integridade pendente. Q5–Q8 requerem `:co_entidade_alvo` e `:ano_alvo`, vinculados pelo cliente SQL em ambiente controlado. Q8B não usa escola-alvo. Q1 e a validação de domínio precedem qualquer interpretação de Q6–Q8B. Se os controles falharem, preservar as contagens diagnósticas e solicitar decisão sobre o tratamento; faixas bloqueadas não constituem evidência de cobertura válida.
 
-As execuções foram informadas como realizadas em PostgreSQL 18 pela conta `sie_auditoria`, em transações `REPEATABLE READ READ ONLY` com timeout. Os quatro CSVs Q8B agora permitem conferir os agregados e têm hashes registrados no manifesto. Não foram localizados logs da sessão, snapshot, data exata de extração, parâmetros capturados nem saídas separadas de Q0–Q8; os CSVs não demonstram por si só as condições da sessão. Esta revisão documental não acessou o banco.
+As execuções anteriores foram informadas como realizadas em PostgreSQL 18 pela conta `sie_auditoria`, em transações `REPEATABLE READ READ ONLY` com timeout. Os quatro CSVs Q8B permitem conferir os agregados e têm hashes registrados no manifesto. Não foram localizados logs da sessão, snapshot, data exata de extração, parâmetros capturados nem saídas separadas de Q0–Q8; os CSVs não demonstram por si só as condições da sessão. A revisão documental inicial não acessou o banco; **esta complementação** realizou uma recontagem agregada independente, limitada a Porto de Moz, 2025, e `IN_AGUA_POTAVEL`, com controles registrados na [evidência específica](evidencias/dad06/06_amostra_manual_porto_de_moz_2025.md).
 
 ### Q0–Q3 — estrutura, chaves, domínio e completude
 
@@ -112,6 +112,18 @@ O relato informa que a Q8B original funcionou no piloto e que a execução conju
 
 ## 8. Amostra manual: casos reportados e seleção pendente
 
+### Complementação da amostra manual — Porto de Moz, 2025
+
+Uma consulta `SELECT` independente na `silver.infraestrutura_comum`, executada em 2026-11-02 pela conta `sie_auditoria` em transação `REPEATABLE READ READ ONLY`, reproduziu o agregado **municipal antes de excluir qualquer escola-alvo** da linha `(2025,1505908,in_agua_potavel)` do [CSV Q8B 2025](evidencias/dad06/DAD06_Q8B_2025_otimizada.csv). A [evidência da consulta](evidencias/dad06/06_amostra_manual_porto_de_moz_2025.md) registra SQL, horários, controles, saída agregada e limites de rastreabilidade.
+
+| Ano | Município | Indicador | Escolas distintas | Presentes (`1`) | Ausentes (`0`) | Sem dados (`NULL`) | Válidos | Inválidos | Presença | Cobertura |
+|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2025 | Porto de Moz (`1505908`) | `IN_AGUA_POTAVEL` | 105 | 53 | 49 | 3 | 102 | 0 | `100 × 53/102 = 51,960784…%` (51,96%) | `100 × 102/105 = 97,142857…%` (97,14%) |
+
+Os `53+49=102` valores válidos e `102+3=105` observações coincidem com o CSV; a consulta encontrou `COUNT(DISTINCT CO_ENTIDADE)=105` nesse recorte. A reprodução independente valida **esta combinação agregada**, sem comprovar que o snapshot atual é o mesmo da exportação Q8B. Não reconstrói a exclusão de uma escola-alvo, a média de índices escolares nem os outros estratos da amostra manual.
+
+### Plano restante da amostra manual
+
 Selecionar separadamente em cada ano 2022, 2023, 2024 e 2025. Primeiro, construir a população de chaves escola/ano únicas e classificar cada linha por completude, validade e município. Depois, por ano e estrato, ordenar candidatos de modo determinístico por `CO_MUNICIPIO`, `CO_ENTIDADE`; escolher o primeiro elegível. Documentar consulta, snapshot, quantidade de candidatos e regra de desempate. A seleção real e os identificadores permanecem em armazenamento controlado, fora de artefatos públicos. Se um estrato não existir naquele ano, registrar ausência e não fabricar um caso.
 
 Estratos mínimos: linha completa; linha com 17 `NULL`; escola existente com lacuna anual; município com `T=0`; município com `T>0,N=0`; município com `N=1`; mudança de município histórico ou divergência territorial, se observada; cobertura municipal abaixo, igual e acima de 60%, se existirem casos; extremos de presença 0% e 100%, quando observados. Reservar casos de duplicidade, inválido e cobertura escolar parcial para observação real somente se Q1–Q3 os encontrarem. Caso contrário, preparar exemplos sintéticos identificados separadamente para conferir a matemática e a política de bloqueio. A DAD01 reportou somente linhas completas ou totalmente nulas naquele recorte; não afirmar que cobertura escolar parcial foi validada empiricamente.
@@ -126,7 +138,7 @@ Para cada escola/ano amostrado, registrar os 17 valores da selecionada e de **to
 | Município com `T=0`, `N=0` ou denominador de 1 a 4 | Nenhum cenário sem pares ou com denominador de 1 a 4 nos CSVs Q8B; menor denominador observado: 36. Casos de referência escolar Q5–Q8 e amostra manual permanecem sem comprovação própria. |
 | Duplicidade, inválido ou cobertura escolar parcial | Não observados no resumo Q1–Q3; exemplos sintéticos podem testar cálculo, sem constituir evidência empírica. |
 
-O manifesto da amostra, snapshot, parâmetros, vetores de indicadores e conferência manual individual continuam pendentes de localização ou incorporação em área controlada. Não registrar cenário previsto como validado.
+O manifesto da **amostra por escola**, snapshot dos CSVs anteriores, vetores de indicadores e conferência manual individual continuam pendentes de localização ou incorporação em área controlada. A consulta agregada acima tem seus próprios parâmetros e horário registrados; não registrar outros cenários previstos como validados.
 
 ## 9. Limiar informativo de 60% e dependências REQ05/BE09
 
@@ -162,7 +174,7 @@ Conferência estática com BE09: `data.serie[].municipio_referencia` usa a linha
 - **DAD02:** 68 verificações documentais sustentam os 17 candidatos comuns; instruções operacionais, aplicabilidade, linhagem Silver e homologação semântica de `S` permanecem pendentes.
 - **DAD05:** princípio da média aritmética aprovado; população elegível, integridade, N=1, territorialidade, publicação e demais decisões complementares não foram homologadas. O MVP não usa corte mínimo de cobertura.
 - **BE09/REQ05:** o limiar de 60%, o escopo da escola selecionada e o caráter não bloqueante estão conciliados. O comportamento público quando há integridade comprometida permanece pendente.
-- **Evidência da execução atual:** os SQLs e CSVs Q8B agregados estão no worktree, com hashes e reconciliação local. Faltam saídas separadas Q0–Q8, logs, datas/snapshots, parâmetros capturados e planos. A conferência dos CSVs não reexecutou SQL nem comprova a sessão de origem. Manter registros individuais fora do Git.
+- **Evidência das exportações anteriores:** os SQLs e CSVs Q8B agregados estão no worktree, com hashes e reconciliação local. Faltam saídas separadas Q0–Q8, logs, datas/snapshots, parâmetros capturados e planos dessas exportações. A conferência dos CSVs não reexecutou Q8B nem comprova sua sessão de origem; a recontagem de um agregado tem registro próprio. Manter registros individuais fora do Git.
 - **Universo e denominadores vazios:** os CSVs conferem 22 municípios e 374 combinações em cada ano, sem pares ausentes nem denominadores de 1 a 4 nesse recorte. A política pública para denominador zero e a elegibilidade territorial precisam de decisão explícita.
 
 ## 11. Critérios de aceite e estado de aprovação
@@ -174,7 +186,7 @@ Conferência estática com BE09: `data.serie[].municipio_referencia` usa a linha
 | Município histórico, exclusão da selecionada e separação anual | Documentados no método e nas consultas preparadas |
 | Duplicidades, inválidos e bloqueio de resultado afetado | Plano de controle preparado; política definitiva pendente |
 | Q0–Q8 e Q8B somente leitura, com parâmetros e limites | SQLs presentes; quatro CSVs Q8B agregados conferidos; saídas Q0–Q8 e logs locais ausentes |
-| Amostra real 2022–2025 e conferência manual dos 17 indicadores | Piloto reportado e agregados Q8B conferidos; manifesto da amostra e vetores controlados pendentes |
+| Amostra real 2022–2025 e conferência manual dos 17 indicadores | Um agregado municipal/indicador de 2025 reproduzido diretamente na Silver; piloto reportado e Q8B conferida; amostra por escola/17 indicadores, demais anos, manifesto e vetores controlados pendentes |
 | Avaliação do alerta de 60% | Valor e escopo confirmados pelo REQ05; distribuição Q8B conferida; caso exatamente igual a 60% ausente e pendente de teste sintético |
 | Revisão nominal, evidências empíricas, aprovação metodológica e homologação | Revisão técnica nominal registrada; aprovação metodológica e homologação pendentes |
 
