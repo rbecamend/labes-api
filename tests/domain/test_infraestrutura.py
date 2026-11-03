@@ -7,6 +7,7 @@ from app.domain.infraestrutura import (
     calcular_comparacao_infraestrutura_ano,
     calcular_indice_infraestrutura,
     calcular_serie_comparacao_infraestrutura,
+    cobertura_indicadores_reduzida,
 )
 
 
@@ -277,3 +278,9 @@ def test_serie_e_ordenada_por_ano():
     )
 
     assert [item.ano for item in serie] == [2023, 2024]
+
+
+def test_alerta_de_cobertura_compara_limiar_exato_de_sessenta_porcento():
+    assert cobertura_indicadores_reduzida(2, 5) is True
+    assert cobertura_indicadores_reduzida(3, 5) is False
+    assert cobertura_indicadores_reduzida(4, 5) is False

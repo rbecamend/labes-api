@@ -19,6 +19,7 @@ __all__ = [
     "ComparacaoInfraestruturaAno",
     "SituacaoComparacaoInfraestrutura",
     "calcular_indice_infraestrutura",
+    "cobertura_indicadores_reduzida",
     "calcular_comparacao_infraestrutura_ano",
     "calcular_serie_comparacao_infraestrutura",
     "InfraestruturaTemporalDependencia",
@@ -179,6 +180,18 @@ def _validar_cobertura_minima(cobertura_minima_percentual: float | None) -> None
 def _percentual_arredondado(proporcao: Fraction) -> float:
     """Arredonda uma proporção exata apenas ao produzir o percentual público."""
     return float(round(100 * proporcao, 2))
+
+
+def cobertura_indicadores_reduzida(
+    quantidade_validos: int,
+    total_indicadores: int,
+) -> bool:
+    """Compara a cobertura exata com 60%, sem usar percentual arredondado."""
+    if quantidade_validos < 0 or total_indicadores <= 0:
+        raise ValueError("As contagens de cobertura devem ser válidas.")
+    if quantidade_validos > total_indicadores:
+        raise ValueError("Indicadores válidos não podem superar o total.")
+    return 5 * quantidade_validos < 3 * total_indicadores
 
 
 def _indice_exato(indice: IndiceInfraestrutura) -> Fraction | None:
