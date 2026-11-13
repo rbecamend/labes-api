@@ -336,6 +336,103 @@ class InfraestruturaRepository:
         row = result.mappings().first()
         return dict(row) if row is not None else None
 
+    async def find_identificacao_municipio(
+        self, *, co_municipio: int
+    ) -> dict[str, int | str | None] | None:
+        """Retorna a identificacao mais recente de um municipio da Silver."""
+        i = infraestrutura_comum.c
+        stmt = (
+            select(
+                i.CO_MUNICIPIO.label("co_municipio"),
+                i.NO_MUNICIPIO.label("no_municipio"),
+            )
+            .where(i.CO_MUNICIPIO == co_municipio)
+            .order_by(i.NU_ANO_CENSO.desc().nulls_last())
+            .limit(1)
+        )
+        result = await self._execute(stmt)
+        row = result.mappings().first()
+        return dict(row) if row is not None else None
+
+    async def find_serie_temporal_municipio(
+        self,
+        *,
+        co_municipio: int,
+        ano_inicio: int,
+        ano_fim: int,
+        indicadores: list[str] | tuple[str, ...],
+        rede_ensino: list[str] | None = None,
+    ) -> list[dict]:
+        """Agrega presenca e cobertura por municipio, ano e indicador.
+
+        As contagens usam escolas distintas para que uma eventual duplicidade
+        fisica nao aumente o denominador. Valores diferentes de 0/1, inclusive
+        NULL, permanecem fora da quantidade valida.
+        """
+        if not indicadores:
+            raise ValueError("E necessario informar ao menos um indicador")
+
+        colunas_invalidas = [
+            indicador
+            for indicador in indicadores
+            if indicador not in METRIC_TO_COLUMN
+        ]
+        if colunas_invalidas:
+            raise ValueError(
+                f"Indicadores invalidos: {sorted(colunas_invalidas)}"
+            )
+
+        i = infraestrutura_comum.c
+        d = dim_tp_dependencia.c
+        quantidade_escolas = func.count(
+            func.distinct(i.CO_ENTIDADE)
+        ).label("quantidade_escolas")
+        agregados = []
+        for indicador in indicadores:
+            coluna = METRIC_TO_COLUMN[indicador]
+            agregados.extend(
+                [
+                    func.count(
+                        func.distinct(
+                            case((coluna == 1, i.CO_ENTIDADE))
+                        )
+                    ).label(f"{indicador}__presentes"),
+                    func.count(
+                        func.distinct(
+                            case((coluna.in_((0, 1)), i.CO_ENTIDADE))
+                        )
+                    ).label(f"{indicador}__validos"),
+                ]
+            )
+
+        origem = infraestrutura_comum
+        if rede_ensino:
+            origem = infraestrutura_comum.join(
+                dim_tp_dependencia,
+                i.TP_DEPENDENCIA == d.co_tp_dependencia,
+            )
+
+        stmt = (
+            select(
+                i.NU_ANO_CENSO.label("ano"),
+                quantidade_escolas,
+                *agregados,
+            )
+            .select_from(origem)
+            .where(
+                i.CO_MUNICIPIO == co_municipio,
+                i.NU_ANO_CENSO.between(ano_inicio, ano_fim),
+                i.CO_ENTIDADE.is_not(None),
+            )
+            .group_by(i.NU_ANO_CENSO)
+            .order_by(i.NU_ANO_CENSO.asc())
+        )
+        if rede_ensino:
+            stmt = stmt.where(d.no_tp_dependencia.in_(rede_ensino))
+
+        result = await self._execute(stmt)
+        return [dict(row) for row in result.mappings()]
+
 
     async def find_media_por_municipio(
         self,

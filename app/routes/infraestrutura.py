@@ -1,7 +1,7 @@
 import logging
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.dependencies import get_infraestrutura_service
@@ -13,6 +13,7 @@ from app.schemas.infraestrutura import (
     MapaResponse,
     PainelEscolasResponse,
     PainelResponse,
+    VisaoTemporalMunicipioInfraestruturaResponse,
 )
 from app.services.infraestrutura_service import InfraestruturaService
 
@@ -217,6 +218,75 @@ async def get_analise_temporal_infraestrutura(
     dos anos censo."""
     envelope = await service.build_analise_temporal(metrica=metrica, pibid=pibid)
     return AnaliseTemporalResponse(**envelope)
+
+
+@router.get(
+    "/analise-temporal/municipios/{co_municipio}",
+    response_model=VisaoTemporalMunicipioInfraestruturaResponse,
+    responses={
+        404: {
+            "model": ErroComparacaoInfraestruturaResponse,
+            "description": "Municipio nao encontrado.",
+        },
+        500: {
+            "model": ErroComparacaoInfraestruturaResponse,
+            "description": "Falha interna inesperada.",
+        },
+        503: {
+            "model": ErroComparacaoInfraestruturaResponse,
+            "description": "Warehouse indisponivel.",
+        },
+    },
+    summary="Serie temporal agregada da infraestrutura de um municipio",
+)
+async def get_visao_temporal_municipio_infraestrutura(
+    co_municipio: int = Path(
+        ...,
+        ge=1_000_000,
+        le=9_999_999,
+        description="Codigo IBGE do municipio, com sete digitos.",
+    ),
+    rede_ensino: list[RedeEnsino] | None = Query(
+        None,
+        description="Rede(s) de ensino incluída(s) no recorte.",
+    ),
+    ano_inicio: int = Query(2022, ge=2000, le=2100),
+    ano_fim: int = Query(2025, ge=2000, le=2100),
+    indicadores: list[VariavelInfraestrutura] | None = Query(
+        None,
+        description="Indicadores da serie; quando omitidos, usa os 17.",
+    ),
+    service: InfraestruturaService = Depends(get_infraestrutura_service),
+) -> VisaoTemporalMunicipioInfraestruturaResponse:
+    """Retorna quantidade de escolas, presenca e cobertura por ano."""
+    if ano_inicio > ano_fim:
+        raise HTTPException(
+            status_code=422,
+            detail="O ano inicial nao pode ser posterior ao ano final.",
+        )
+    try:
+        envelope = await service.build_visao_temporal_municipio(
+            co_municipio=co_municipio,
+            rede_ensino=rede_ensino,
+            ano_inicio=ano_inicio,
+            ano_fim=ano_fim,
+            indicadores=indicadores,
+        )
+        return VisaoTemporalMunicipioInfraestruturaResponse.model_validate(
+            envelope
+        )
+    except AppError:
+        raise
+    except SQLAlchemyError as exc:
+        logger.exception("Warehouse indisponivel na visao temporal municipal")
+        raise WarehouseUnavailableError(
+            "Nao foi possivel consultar os dados de infraestrutura."
+        ) from exc
+    except Exception as exc:
+        logger.exception("Falha interna na visao temporal municipal")
+        raise AppError(
+            "Nao foi possivel processar a visao temporal municipal."
+        ) from exc
 
 
 @router.get(

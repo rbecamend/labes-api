@@ -64,6 +64,9 @@ METRICS_BY_KEY: dict[str, str] = {key: label for key, label in METRIC_FIELDS}
 PAINEL_DESCRICAO = "painel_infraestrutura"
 MAPA_DESCRICAO = "mapa_infraestrutura"
 ANALISE_TEMPORAL_DESCRICAO = "analise_temporal_infraestrutura"
+ANALISE_TEMPORAL_MUNICIPIO_DESCRICAO = (
+    "analise_temporal_infraestrutura_municipio"
+)
 COMPARACAO_MUNICIPIO_DESCRICAO = "comparacao_infraestrutura_escola_municipio"
 VERSAO_METODOLOGIA_COMPARACAO = "infraestrutura-v3-provisoria"
 ANOS_COMPARACAO = (2022, 2023, 2024, 2025)
@@ -349,6 +352,125 @@ class InfraestruturaService:
                     "evolucao_temporal_por_dependencia": grafico_dependencia,
                 },
             },
+        }
+
+    async def build_visao_temporal_municipio(
+        self,
+        *,
+        co_municipio: int,
+        ano_inicio: int,
+        ano_fim: int,
+        indicadores: list[str] | None = None,
+        rede_ensino: list[str] | None = None,
+    ) -> dict:
+        """Monta a serie agregada da infraestrutura de um municipio.
+
+        A serie inclui todos os anos do intervalo solicitado. Anos sem escolas
+        aparecem com denominador zero e percentuais nulos, sem converter NULL
+        em ausencia de infraestrutura.
+        """
+        if ano_inicio > ano_fim:
+            raise ValueError("O ano inicial nao pode ser posterior ao ano final.")
+
+        indicadores_selecionados = list(
+            dict.fromkeys(
+                indicadores
+                if indicadores is not None
+                else [chave for chave, _ in METRIC_FIELDS]
+            )
+        )
+        if not indicadores_selecionados:
+            raise ValueError("E necessario informar ao menos um indicador.")
+
+        invalidos = [
+            indicador
+            for indicador in indicadores_selecionados
+            if indicador not in METRICS_BY_KEY
+        ]
+        if invalidos:
+            raise ValueError(f"Indicadores invalidos: {sorted(invalidos)}")
+
+        identificacao = await self._repository.find_identificacao_municipio(
+            co_municipio=co_municipio
+        )
+        if identificacao is None:
+            raise NotFoundError(f"Municipio {co_municipio} nao encontrado.")
+
+        registros = await self._repository.find_serie_temporal_municipio(
+            co_municipio=co_municipio,
+            ano_inicio=ano_inicio,
+            ano_fim=ano_fim,
+            indicadores=indicadores_selecionados,
+            rede_ensino=rede_ensino,
+        )
+        registros_por_ano = {int(registro["ano"]): registro for registro in registros}
+        serie = [
+            self._compor_ponto_temporal_municipio(
+                ano=ano,
+                registro=registros_por_ano.get(ano),
+                indicadores=indicadores_selecionados,
+            )
+            for ano in range(ano_inicio, ano_fim + 1)
+        ]
+
+        return {
+            "descricao": ANALISE_TEMPORAL_MUNICIPIO_DESCRICAO,
+            "data": {
+                "municipio": {
+                    "co_municipio": identificacao["co_municipio"],
+                    "no_municipio": identificacao["no_municipio"],
+                },
+                "filtros": {
+                    "rede_ensino": rede_ensino or [],
+                    "ano_inicio": ano_inicio,
+                    "ano_fim": ano_fim,
+                    "indicadores": indicadores_selecionados,
+                },
+                "serie": serie,
+            },
+        }
+
+    @staticmethod
+    def _compor_ponto_temporal_municipio(
+        *,
+        ano: int,
+        registro: dict | None,
+        indicadores: list[str],
+    ) -> dict:
+        quantidade_escolas = (
+            int(registro["quantidade_escolas"])
+            if registro is not None
+            else 0
+        )
+        composicao = {}
+        for indicador in indicadores:
+            presentes = (
+                int(registro[f"{indicador}__presentes"] or 0)
+                if registro is not None
+                else 0
+            )
+            validos = (
+                int(registro[f"{indicador}__validos"] or 0)
+                if registro is not None
+                else 0
+            )
+            composicao[indicador] = {
+                "quantidade_presentes": presentes,
+                "quantidade_validos": validos,
+                "quantidade_sem_dados": quantidade_escolas - validos,
+                "percentual_presentes": (
+                    round(100 * presentes / validos, 2) if validos else None
+                ),
+                "cobertura_percentual": (
+                    round(100 * validos / quantidade_escolas, 2)
+                    if quantidade_escolas
+                    else None
+                ),
+            }
+        return {
+            "ano": ano,
+            "quantidade_escolas": quantidade_escolas,
+            "indicadores": composicao,
         }
 
     async def build_comparacao_municipio(self, co_entidade: int) -> dict:

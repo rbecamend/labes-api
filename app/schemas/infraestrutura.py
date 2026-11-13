@@ -27,6 +27,11 @@ __all__ = [
     "MapaResponse",
     "AnaliseTemporalData",
     "AnaliseTemporalResponse",
+    "FiltrosVisaoTemporalMunicipioInfraestrutura",
+    "IndicadorVisaoTemporalMunicipioInfraestrutura",
+    "PontoVisaoTemporalMunicipioInfraestrutura",
+    "VisaoTemporalMunicipioInfraestruturaData",
+    "VisaoTemporalMunicipioInfraestruturaResponse",
     "ANOS_COMPARACAO_INFRAESTRUTURA",
     "INDICADORES_COMPARACAO_INFRAESTRUTURA",
     "SituacaoComparacaoInfraestrutura",
@@ -159,6 +164,128 @@ class MunicipioComparacaoInfraestrutura(_ContratoComparacaoInfraestrutura):
 
     co_municipio: int = Field(..., gt=0, description="Código IBGE do município.")
     no_municipio: str = Field(..., min_length=1, description="Nome do município.")
+
+
+class FiltrosVisaoTemporalMunicipioInfraestrutura(
+    _ContratoComparacaoInfraestrutura
+):
+    """Recorte aplicado a serie municipal."""
+
+    rede_ensino: list[
+        Literal["Federal", "Estadual", "Municipal", "Privada"]
+    ] = Field(default_factory=list)
+    ano_inicio: int = Field(..., ge=2000, le=2100)
+    ano_fim: int = Field(..., ge=2000, le=2100)
+    indicadores: list[str] = Field(..., min_length=1, max_length=17)
+
+    @model_validator(mode="after")
+    def validar_intervalo_e_indicadores(self) -> Self:
+        if self.ano_inicio > self.ano_fim:
+            raise ValueError("O ano inicial nao pode ser posterior ao ano final.")
+        if len(self.indicadores) != len(set(self.indicadores)):
+            raise ValueError("A lista de indicadores nao pode conter repeticoes.")
+        if any(
+            indicador not in INDICADORES_COMPARACAO_INFRAESTRUTURA
+            for indicador in self.indicadores
+        ):
+            raise ValueError("A lista contem um indicador nao suportado.")
+        return self
+
+
+class IndicadorVisaoTemporalMunicipioInfraestrutura(
+    _ContratoComparacaoInfraestrutura
+):
+    """Agregado anual de um indicador nas escolas do municipio."""
+
+    quantidade_presentes: int = Field(..., ge=0)
+    quantidade_validos: int = Field(..., ge=0)
+    quantidade_sem_dados: int = Field(..., ge=0)
+    percentual_presentes: float | None = Field(..., ge=0, le=100)
+    cobertura_percentual: float | None = Field(..., ge=0, le=100)
+
+    @model_validator(mode="after")
+    def validar_percentuais(self) -> Self:
+        if self.quantidade_presentes > self.quantidade_validos:
+            raise ValueError("Presentes nao podem superar os valores validos.")
+
+        percentual_esperado = (
+            float(
+                round(
+                    Fraction(
+                        100 * self.quantidade_presentes,
+                        self.quantidade_validos,
+                    ),
+                    2,
+                )
+            )
+            if self.quantidade_validos
+            else None
+        )
+        total = self.quantidade_validos + self.quantidade_sem_dados
+        cobertura_esperada = (
+            float(round(Fraction(100 * self.quantidade_validos, total), 2))
+            if total
+            else None
+        )
+        if self.percentual_presentes != percentual_esperado:
+            raise ValueError("Percentual de presenca nao corresponde as contagens.")
+        if self.cobertura_percentual != cobertura_esperada:
+            raise ValueError("Cobertura nao corresponde as contagens.")
+        return self
+
+
+class PontoVisaoTemporalMunicipioInfraestrutura(
+    _ContratoComparacaoInfraestrutura
+):
+    """Composicao agregada do municipio em um ano."""
+
+    ano: int = Field(..., ge=2000, le=2100)
+    quantidade_escolas: int = Field(..., ge=0)
+    indicadores: dict[str, IndicadorVisaoTemporalMunicipioInfraestrutura]
+
+    @model_validator(mode="after")
+    def validar_denominadores(self) -> Self:
+        for agregado in self.indicadores.values():
+            if (
+                agregado.quantidade_validos + agregado.quantidade_sem_dados
+                != self.quantidade_escolas
+            ):
+                raise ValueError(
+                    "Validos e sem dados devem totalizar as escolas do ano."
+                )
+        return self
+
+
+class VisaoTemporalMunicipioInfraestruturaData(
+    _ContratoComparacaoInfraestrutura
+):
+    municipio: MunicipioComparacaoInfraestrutura
+    filtros: FiltrosVisaoTemporalMunicipioInfraestrutura
+    serie: list[PontoVisaoTemporalMunicipioInfraestrutura]
+
+    @model_validator(mode="after")
+    def validar_serie(self) -> Self:
+        anos_esperados = list(
+            range(self.filtros.ano_inicio, self.filtros.ano_fim + 1)
+        )
+        if [ponto.ano for ponto in self.serie] != anos_esperados:
+            raise ValueError("A serie deve conter todos os anos do intervalo.")
+        chaves_esperadas = set(self.filtros.indicadores)
+        if any(
+            set(ponto.indicadores) != chaves_esperadas
+            for ponto in self.serie
+        ):
+            raise ValueError(
+                "Cada ponto deve conter exatamente os indicadores solicitados."
+            )
+        return self
+
+
+class VisaoTemporalMunicipioInfraestruturaResponse(
+    _ContratoComparacaoInfraestrutura
+):
+    descricao: Literal["analise_temporal_infraestrutura_municipio"]
+    data: VisaoTemporalMunicipioInfraestruturaData
 
 
 class MetodologiaComparacaoInfraestrutura(_ContratoComparacaoInfraestrutura):
