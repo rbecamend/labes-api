@@ -255,6 +255,24 @@ class InfraestruturaRepository:
             *(col.label(chave) for chave, col in METRIC_TO_COLUMN.items()),
         ]
 
+    async def find_anos_disponiveis(
+        self, *, ano_inicio: int, ano_fim: int
+    ) -> list[int]:
+        """Retorna os anos distintos existentes na Silver dentro do intervalo."""
+        i = infraestrutura_comum.c
+        stmt = (
+            select(i.NU_ANO_CENSO.label("ano"))
+            .where(
+                i.NU_ANO_CENSO.is_not(None),
+                i.CO_ENTIDADE.is_not(None),
+                i.NU_ANO_CENSO.between(ano_inicio, ano_fim),
+            )
+            .distinct()
+            .order_by(i.NU_ANO_CENSO.asc())
+        )
+        result = await self._execute(stmt)
+        return [int(row["ano"]) for row in result.mappings().all()]
+
     async def find_historico_escola(
         self,
         *,
@@ -287,6 +305,7 @@ class InfraestruturaRepository:
         co_entidade_excluida: int,
         co_municipio: int | None,
         ano: int,
+        rede_ensino: list[str] | None = None,
     ) -> list[InfraestruturaRegistroBruto]:
         """BE-03: escolas diferentes da selecionada no mesmo município/ano.
 
@@ -296,8 +315,16 @@ class InfraestruturaRepository:
         if co_municipio is None:
             return []
         i = infraestrutura_comum.c
+        d = dim_tp_dependencia.c
+        origem = infraestrutura_comum
+        if rede_ensino:
+            origem = infraestrutura_comum.join(
+                dim_tp_dependencia,
+                i.TP_DEPENDENCIA == d.co_tp_dependencia,
+            )
         stmt = (
             select(*self._colunas_registro_bruto())
+            .select_from(origem)
             .where(
                 i.CO_MUNICIPIO == co_municipio,
                 i.NU_ANO_CENSO == ano,
@@ -306,6 +333,8 @@ class InfraestruturaRepository:
             )
             .order_by(i.CO_ENTIDADE.asc())
         )
+        if rede_ensino:
+            stmt = stmt.where(d.no_tp_dependencia.in_(rede_ensino))
         result = await self._execute(stmt)
         return [_row_to_registro_bruto(row) for row in result.mappings()]
 

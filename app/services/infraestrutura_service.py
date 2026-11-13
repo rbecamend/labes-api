@@ -473,25 +473,63 @@ class InfraestruturaService:
             "indicadores": composicao,
         }
 
-    async def build_comparacao_municipio(self, co_entidade: int) -> dict:
-        """Monta a comparação anual entre a escola e seus pares municipais.
+    async def build_comparacao_municipio(
+        self,
+        co_entidade: int,
+        *,
+        rede_ensino: list[str] | None = None,
+        ano_inicio: int = 2022,
+        ano_fim: int = 2025,
+    ) -> dict:
+        """Monta a comparação para a rede de referência e intervalo solicitados.
 
-        A identificação mais recente é usada somente no cabeçalho. Cada ponto
-        observado usa o município histórico do respectivo ano. Anos sem
-        registro permanecem na série como lacunas explícitas.
+        A escola selecionada é mantida como alvo independentemente da rede.
+        ``rede_ensino`` filtra somente as escolas usadas como referência.
+        A série contém apenas anos existentes na fonte, com estados sem dados
+        preservados quando há dados gerais no ano, mas não para a escola-alvo.
         """
+        if ano_fim - ano_inicio < 2:
+            raise ValueError(
+                "O intervalo solicitado deve abranger pelo menos dois anos completos."
+            )
+        if rede_ensino is not None:
+            redes_validas = {"Federal", "Estadual", "Municipal", "Privada"}
+            invalidas = sorted(set(rede_ensino) - redes_validas)
+            if invalidas:
+                raise ValueError(f"Redes de ensino inválidas: {invalidas}")
+            rede_ensino = list(dict.fromkeys(rede_ensino))
+
         identificacao = await self._repository.find_identificacao_escola(
             co_entidade=co_entidade
         )
         if identificacao is None:
             raise NotFoundError(f"Escola {co_entidade} não encontrada.")
 
+        anos_disponiveis = await self._repository.find_anos_disponiveis(
+            ano_inicio=ano_inicio,
+            ano_fim=ano_fim,
+        )
+        anos_disponiveis = sorted(set(anos_disponiveis))
+        if any(ano < ano_inicio or ano > ano_fim for ano in anos_disponiveis):
+            raise ValueError("O repositório retornou ano fora do intervalo solicitado.")
+
         registros = await self._repository.find_historico_escola(
             co_entidade=co_entidade,
-            anos_comparaveis=ANOS_COMPARACAO,
+            anos_comparaveis=anos_disponiveis,
         )
+        registros_por_ano = {}
+        for registro in registros:
+            if registro.nu_ano_censo not in anos_disponiveis:
+                raise ValueError("O histórico contém ano que não está disponível na fonte.")
+            if registro.nu_ano_censo in registros_por_ano:
+                raise ValueError("Há mais de um registro da escola para o mesmo ano.")
+            registros_por_ano[registro.nu_ano_censo] = registro
+
         registros_com_municipio = [
-            registro for registro in registros if registro.co_municipio is not None
+            registros_por_ano[ano]
+            for ano in anos_disponiveis
+            if ano in registros_por_ano
+            and registros_por_ano[ano].co_municipio is not None
         ]
         pares_por_registro = await asyncio.gather(
             *(
@@ -499,6 +537,7 @@ class InfraestruturaService:
                     co_entidade_excluida=co_entidade,
                     co_municipio=registro.co_municipio,
                     ano=registro.nu_ano_censo,
+                    rede_ensino=rede_ensino,
                 )
                 for registro in registros_com_municipio
             )
@@ -524,9 +563,6 @@ class InfraestruturaService:
         resultados_por_ano = {
             resultado.ano: asdict(resultado) for resultado in resultados
         }
-        registros_por_ano = {
-            registro.nu_ano_censo: registro for registro in registros
-        }
         serie = [
             self._compor_ponto_comparacao(
                 resultado=resultados_por_ano[ano],
@@ -539,7 +575,7 @@ class InfraestruturaService:
                 ano=ano,
                 indicadores=indicadores,
             )
-            for ano in ANOS_COMPARACAO
+            for ano in anos_disponiveis
         ]
 
         return {
@@ -553,10 +589,15 @@ class InfraestruturaService:
                     "co_municipio": identificacao["co_municipio"],
                     "no_municipio": identificacao["no_municipio"],
                 },
+                "filtros": {
+                    "rede_ensino": rede_ensino or [],
+                    "ano_inicio": ano_inicio,
+                    "ano_fim": ano_fim,
+                },
                 "metodologia": {
                     "versao": VERSAO_METODOLOGIA_COMPARACAO,
                     "homologada": False,
-                    "anos": list(ANOS_COMPARACAO),
+                    "anos": anos_disponiveis,
                     "indicadores": list(indicadores),
                     "total_indicadores": len(indicadores),
                     "cobertura_minima_percentual": None,

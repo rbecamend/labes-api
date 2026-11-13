@@ -70,6 +70,11 @@ def _resposta_valida() -> dict:
                 "co_municipio": 1501402,
                 "no_municipio": "Belém",
             },
+            "filtros": {
+                "rede_ensino": [],
+                "ano_inicio": 2022,
+                "ano_fim": 2025,
+            },
             "metodologia": {
                 "versao": "infraestrutura-v3-provisoria",
                 "homologada": False,
@@ -99,8 +104,8 @@ class _Servico:
         self.erro = erro
         self.chamadas = []
 
-    async def build_comparacao_municipio(self, *, co_entidade):
-        self.chamadas.append(co_entidade)
+    async def build_comparacao_municipio(self, **kwargs):
+        self.chamadas.append(kwargs)
         if self.erro is not None:
             raise self.erro
         return self.resposta
@@ -137,7 +142,12 @@ async def test_rota_retorna_contrato_v3_e_chama_servico():
 
     assert resposta.status_code == 200
     assert resposta.json()["data"]["metodologia"]["total_indicadores"] == 17
-    assert servico.chamadas == [15012345]
+    assert servico.chamadas == [{
+        "co_entidade": 15012345,
+        "rede_ensino": None,
+        "ano_inicio": 2022,
+        "ano_fim": 2025,
+    }]
 
 
 async def test_rota_rejeita_codigo_inep_sem_oito_digitos():
@@ -178,3 +188,35 @@ async def test_openapi_documenta_resposta_e_erros_da_rota():
     )]["get"]
 
     assert set(operacao["responses"]) >= {"200", "404", "422", "500", "503"}
+
+
+async def test_be13_rota_encaminha_rede_e_intervalo():
+    servico = _Servico(resposta=_resposta_valida())
+    resposta = await _get(
+        servico,
+        f"{ROTA}?rede_ensino=Municipal&ano_inicio=2022&ano_fim=2025",
+    )
+    assert resposta.status_code == 200
+    assert servico.chamadas == [{
+        "co_entidade": 15012345,
+        "rede_ensino": ["Municipal"],
+        "ano_inicio": 2022,
+        "ano_fim": 2025,
+    }]
+
+
+async def test_be13_rota_rejeita_intervalo_inferior_a_dois_anos():
+    servico = _Servico(resposta=_resposta_valida())
+    resposta = await _get(
+        servico,
+        f"{ROTA}?ano_inicio=2022&ano_fim=2023",
+    )
+    assert resposta.status_code == 422
+    assert servico.chamadas == []
+
+
+async def test_be13_rota_openapi_documenta_novos_parametros():
+    resposta = await _get(_Servico(resposta=_resposta_valida()), "/openapi.json")
+    operacao = resposta.json()["paths"][ROTA.replace("15012345", "{co_entidade}")]["get"]
+    parametros = {item["name"] for item in operacao["parameters"]}
+    assert {"co_entidade", "rede_ensino", "ano_inicio", "ano_fim"} <= parametros

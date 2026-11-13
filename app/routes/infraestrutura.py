@@ -307,6 +307,11 @@ async def get_visao_temporal_municipio_infraestrutura(
         },
     },
     summary="Compara a infraestrutura da escola com seu município",
+    description=(
+        "Permite selecionar a(s) rede(s) das escolas de referência e um "
+        "intervalo temporal com pelo menos dois anos de diferença. A resposta "
+        "inclui somente os anos existentes na base dentro do intervalo."
+    ),
 )
 async def get_comparacao_infraestrutura_municipio(
     co_entidade: int = Path(
@@ -315,12 +320,35 @@ async def get_comparacao_infraestrutura_municipio(
         le=99_999_999,
         description="Código INEP da escola, com oito dígitos.",
     ),
+    rede_ensino: list[RedeEnsino] | None = Query(
+        None,
+        description=(
+            "Rede(s) de ensino das escolas de referência: Federal, Estadual, "
+            "Municipal ou Privada. A escola selecionada permanece como alvo."
+        ),
+    ),
+    ano_inicio: int = Query(
+        2022, ge=2000, le=2100,
+        description="Primeiro ano; ano_fim deve estar pelo menos dois anos à frente.",
+    ),
+    ano_fim: int = Query(
+        2025, ge=2000, le=2100,
+        description="Último ano; o intervalo deve ter pelo menos dois anos de diferença.",
+    ),
     service: InfraestruturaService = Depends(get_infraestrutura_service),
 ) -> ComparacaoInfraestruturaResponse:
-    """Retorna a série fixa 2022–2025 da comparação Escola × Município."""
+    """Compara escola e município na rede de referência e período solicitados."""
+    if ano_fim - ano_inicio < 2:
+        raise HTTPException(
+            status_code=422,
+            detail="O intervalo solicitado deve abranger pelo menos dois anos completos.",
+        )
     try:
         envelope = await service.build_comparacao_municipio(
-            co_entidade=co_entidade
+            co_entidade=co_entidade,
+            rede_ensino=rede_ensino,
+            ano_inicio=ano_inicio,
+            ano_fim=ano_fim,
         )
         return ComparacaoInfraestruturaResponse.model_validate(envelope)
     except AppError:
