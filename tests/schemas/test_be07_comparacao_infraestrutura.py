@@ -112,6 +112,11 @@ def _resposta() -> dict:
                 "co_municipio": 1501402,
                 "no_municipio": "Belém",
             },
+            "filtros": {
+                "rede_ensino": [],
+                "ano_inicio": 2022,
+                "ano_fim": 2025,
+            },
             "metodologia": {
                 "versao": "infraestrutura-v3-provisoria",
                 "homologada": False,
@@ -172,7 +177,7 @@ def test_schema_rejeita_serie_com_ano_ausente():
     payload = _resposta()
     payload["data"]["serie"].pop()
 
-    with pytest.raises(ValidationError, match="at least 4 items"):
+    with pytest.raises(ValidationError, match="A série deve corresponder aos anos disponíveis"):
         ComparacaoInfraestruturaResponse.model_validate(payload)
 
 
@@ -447,3 +452,25 @@ def test_schema_rejeita_codigo_de_erro_fora_do_contrato():
             code="database_error",
             message="Erro interno.",
         )
+
+
+def test_be13_schema_aceita_serie_dinamica_de_anos_disponiveis():
+    payload = _resposta()
+    payload["data"]["filtros"] = {
+        "rede_ensino": ["Municipal"], "ano_inicio": 2022, "ano_fim": 2025
+    }
+    payload["data"]["metodologia"]["anos"] = [2022, 2024]
+    payload["data"]["serie"] = [
+        _ponto(2022), _ponto(2024)
+    ]
+    model = ComparacaoInfraestruturaResponse.model_validate(payload)
+    assert [p.ano for p in model.data.serie] == [2022, 2024]
+    assert model.data.filtros.rede_ensino == ["Municipal"]
+
+
+def test_be13_schema_rejeita_intervalo_com_menos_de_dois_anos():
+    payload = _resposta()
+    payload["data"]["filtros"]["ano_inicio"] = 2022
+    payload["data"]["filtros"]["ano_fim"] = 2023
+    with pytest.raises(ValidationError, match="dois anos completos"):
+        ComparacaoInfraestruturaResponse.model_validate(payload)
