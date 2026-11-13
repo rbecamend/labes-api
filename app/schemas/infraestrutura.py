@@ -38,6 +38,7 @@ __all__ = [
     "CodigoErroComparacaoInfraestrutura",
     "EscolaComparacaoInfraestrutura",
     "MunicipioComparacaoInfraestrutura",
+    "FiltrosComparacaoInfraestrutura",
     "ComposicaoMunicipalIndicadorInfraestrutura",
     "MetodologiaComparacaoInfraestrutura",
     "PontoComparacaoInfraestrutura",
@@ -288,6 +289,23 @@ class VisaoTemporalMunicipioInfraestruturaResponse(
     data: VisaoTemporalMunicipioInfraestruturaData
 
 
+class FiltrosComparacaoInfraestrutura(_ContratoComparacaoInfraestrutura):
+    """Filtros temporais e rede aplicados à comparação Escola × Município."""
+
+    rede_ensino: list[Literal["Federal", "Estadual", "Municipal", "Privada"]] = Field(
+        default_factory=list,
+        description="Redes de ensino usadas para selecionar as escolas de referência.",
+    )
+    ano_inicio: int = Field(..., ge=2000, le=2100)
+    ano_fim: int = Field(..., ge=2000, le=2100)
+
+    @model_validator(mode="after")
+    def validar_intervalo_minimo(self) -> Self:
+        if self.ano_fim - self.ano_inicio < 2:
+            raise ValueError("O intervalo solicitado deve abranger pelo menos dois anos completos.")
+        return self
+
+
 class MetodologiaComparacaoInfraestrutura(_ContratoComparacaoInfraestrutura):
     """Metadados da metodologia provisória usada no cálculo."""
 
@@ -298,7 +316,7 @@ class MetodologiaComparacaoInfraestrutura(_ContratoComparacaoInfraestrutura):
         ..., description="Indica que a metodologia ainda não foi homologada."
     )
     anos: list[int] = Field(
-        ..., min_length=4, max_length=4, description="Período fixo do MVP."
+        ..., description="Anos efetivamente disponíveis no banco dentro do período solicitado."
     )
     indicadores: list[str] = Field(
         ...,
@@ -337,10 +355,10 @@ class MetodologiaComparacaoInfraestrutura(_ContratoComparacaoInfraestrutura):
     @field_validator("anos")
     @classmethod
     def validar_anos(cls, anos: list[int]) -> list[int]:
-        if tuple(anos) != ANOS_COMPARACAO_INFRAESTRUTURA:
-            raise ValueError(
-                "Os anos devem ser 2022, 2023, 2024 e 2025, nessa ordem."
-            )
+        if any(type(ano) is not int or ano < 2000 or ano > 2100 for ano in anos):
+            raise ValueError("Os anos disponíveis devem ser inteiros válidos.")
+        if anos != sorted(set(anos)):
+            raise ValueError("Os anos disponíveis devem ser únicos e crescentes.")
         return anos
 
     @field_validator("indicadores")
@@ -414,9 +432,7 @@ class ComposicaoMunicipalIndicadorInfraestrutura(
 class PontoComparacaoInfraestrutura(_ContratoComparacaoInfraestrutura):
     """Resultado da comparação Escola × Município em um ano do contrato."""
 
-    ano: Literal[2022, 2023, 2024, 2025] = Field(
-        ..., description="Ano do Censo Escolar."
-    )
+    ano: int = Field(..., ge=2000, le=2100, description="Ano do Censo Escolar disponível.")
     situacao: SituacaoComparacaoInfraestrutura = Field(
         ..., description="Disponibilidade do ponto anual."
     )
@@ -667,26 +683,29 @@ class ComparacaoInfraestruturaData(_ContratoComparacaoInfraestrutura):
     municipio: MunicipioComparacaoInfraestrutura = Field(
         ..., description="Município mais recente para identificação."
     )
+    filtros: FiltrosComparacaoInfraestrutura = Field(
+        ..., description="Rede de referência e intervalo temporal solicitados."
+    )
     metodologia: MetodologiaComparacaoInfraestrutura = Field(
         ..., description="Metodologia aplicada ao cálculo."
     )
     serie: list[PontoComparacaoInfraestrutura] = Field(
         ...,
-        min_length=4,
-        max_length=4,
-        description="Série completa de 2022 a 2025, incluindo lacunas.",
+        description="Série dos anos efetivamente disponíveis no banco dentro do intervalo.",
     )
 
-    @field_validator("serie")
-    @classmethod
-    def validar_serie(
-        cls, serie: list[PontoComparacaoInfraestrutura]
-    ) -> list[PontoComparacaoInfraestrutura]:
-        if tuple(ponto.ano for ponto in serie) != ANOS_COMPARACAO_INFRAESTRUTURA:
-            raise ValueError(
-                "A série deve conter 2022–2025, nessa ordem e sem lacunas."
-            )
-        return serie
+    @model_validator(mode="after")
+    def validar_serie(self) -> Self:
+        anos_metodologia = self.metodologia.anos
+        anos_serie = [ponto.ano for ponto in self.serie]
+        if anos_serie != anos_metodologia:
+            raise ValueError("A série deve corresponder aos anos disponíveis informados na metodologia.")
+        if any(
+            ano < self.filtros.ano_inicio or ano > self.filtros.ano_fim
+            for ano in anos_serie
+        ):
+            raise ValueError("A série contém ano fora do intervalo solicitado.")
+        return self
 
 
 class ComparacaoInfraestruturaResponse(_ContratoComparacaoInfraestrutura):
