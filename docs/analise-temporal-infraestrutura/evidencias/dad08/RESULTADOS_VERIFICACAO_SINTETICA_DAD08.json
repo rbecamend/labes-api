@@ -1,0 +1,218 @@
+{
+  "natureza": "Verificacoes com fracoes exatas sobre dados sinteticos; nao validam o banco ou os endpoints",
+  "total": 35,
+  "aprovadas": 35,
+  "reprovadas": 0,
+  "verificacoes": [
+    {
+      "verificacao": "E1 todos total",
+      "obtido": "5",
+      "esperado": "5",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E1 todos validos",
+      "obtido": "3",
+      "esperado": "3",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E1 todos presentes",
+      "obtido": "2",
+      "esperado": "2",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E1 todos presenca",
+      "obtido": "200/3",
+      "esperado": "200/3",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E1 todos cobertura",
+      "obtido": "60",
+      "esperado": "60",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E1 municipal presenca",
+      "obtido": "50",
+      "esperado": "50",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E1 municipal cobertura",
+      "obtido": "200/3",
+      "esperado": "200/3",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E1 estadual presenca",
+      "obtido": "100",
+      "esperado": "100",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E1 estadual cobertura",
+      "obtido": "50",
+      "esperado": "50",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E2 indice alvo",
+      "obtido": "1200/17",
+      "esperado": "1200/17",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E2 A",
+      "obtido": "60",
+      "esperado": "60",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E2 B",
+      "obtido": "100",
+      "esperado": "100",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E2 C",
+      "obtido": "40",
+      "esperado": "40",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E2 pares geral T",
+      "obtido": "4",
+      "esperado": "4",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E2 pares geral N",
+      "obtido": "3",
+      "esperado": "3",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E2 media geral",
+      "obtido": "200/3",
+      "esperado": "200/3",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E2 cobertura pares geral",
+      "obtido": "75",
+      "esperado": "75",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E2 delta geral",
+      "obtido": "200/51",
+      "esperado": "200/51",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E2 pares Municipal T",
+      "obtido": "3",
+      "esperado": "3",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E2 pares Municipal N",
+      "obtido": "2",
+      "esperado": "2",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E2 media Municipal",
+      "obtido": "80",
+      "esperado": "80",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E2 cobertura pares Municipal",
+      "obtido": "200/3",
+      "esperado": "200/3",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E2 delta Municipal",
+      "obtido": "-160/17",
+      "esperado": "-160/17",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E2 alvo nao excluido pelo filtro Municipal",
+      "obtido": "1200/17",
+      "esperado": "1200/17",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E3 sem comparadoras T=0",
+      "obtido": "0",
+      "esperado": "0",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E3 sem comparadoras N=0",
+      "obtido": "0",
+      "esperado": "0",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E3 3 comparadoras todas sem indice: cobertura 0",
+      "obtido": "0",
+      "esperado": "0",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E3 uma comparadora valida entre 2",
+      "obtido": "50",
+      "esperado": "50",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E3 indice da unica comparadora",
+      "obtido": "700/17",
+      "esperado": "700/17",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E3 V=0 T=3 cobertura indicador",
+      "obtido": "0",
+      "esperado": "0",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E3 V=0 T=3 sem dados",
+      "obtido": "3",
+      "esperado": "3",
+      "aprovada": true
+    },
+    {
+      "verificacao": "E3 escola 17 NULL cobertura",
+      "obtido": "0",
+      "esperado": "0",
+      "aprovada": true
+    },
+    {
+      "verificacao": "Regra de alerta 10/17",
+      "obtido": "True",
+      "esperado": "True",
+      "aprovada": true
+    },
+    {
+      "verificacao": "Regra de alerta 11/17",
+      "obtido": "False",
+      "esperado": "False",
+      "aprovada": true
+    },
+    {
+      "verificacao": "Cobertura escolar 60 por cento exata impossivel",
+      "obtido": "True",
+      "esperado": "True",
+      "aprovada": true
+    }
+  ]
+}
