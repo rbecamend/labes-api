@@ -363,11 +363,10 @@ class InfraestruturaRepository:
         indicadores: list[str] | tuple[str, ...],
         rede_ensino: list[str] | None = None,
     ) -> list[dict]:
-        """Agrega presenca e cobertura por municipio, ano e indicador.
+        """Calcula primeiro o indice escolar e depois a media simples anual.
 
-        As contagens usam escolas distintas para que uma eventual duplicidade
-        fisica nao aumente o denominador. Valores diferentes de 0/1, inclusive
-        NULL, permanecem fora da quantidade valida.
+        Duplicatas identicas contam uma vez. Conflitos e valores invalidos nos
+        indicadores selecionados sao diagnosticados, nunca tratados como NULL.
         """
         if not indicadores:
             raise ValueError("E necessario informar ao menos um indicador")
@@ -384,25 +383,17 @@ class InfraestruturaRepository:
 
         i = infraestrutura_comum.c
         d = dim_tp_dependencia.c
-        quantidade_escolas = func.count(
-            func.distinct(i.CO_ENTIDADE)
-        ).label("quantidade_escolas")
-        agregados = []
+        colunas_escola = []
+        inconsistencias = []
         for indicador in indicadores:
             coluna = METRIC_TO_COLUMN[indicador]
-            agregados.extend(
-                [
-                    func.count(
-                        func.distinct(
-                            case((coluna == 1, i.CO_ENTIDADE))
-                        )
-                    ).label(f"{indicador}__presentes"),
-                    func.count(
-                        func.distinct(
-                            case((coluna.in_((0, 1)), i.CO_ENTIDADE))
-                        )
-                    ).label(f"{indicador}__validos"),
-                ]
+            colunas_escola.append(func.max(coluna).label(indicador))
+            inconsistencias.append(
+                or_(
+                    func.count(func.distinct(coluna)) > 1,
+                    and_(func.count(coluna) > 0, func.count(coluna) < func.count()),
+                    func.max(case((coluna.not_in((0, 1)), 1), else_=0)) > 0,
+                )
             )
 
         origem = infraestrutura_comum
@@ -412,11 +403,12 @@ class InfraestruturaRepository:
                 i.TP_DEPENDENCIA == d.co_tp_dependencia,
             )
 
-        stmt = (
+        escolas_stmt = (
             select(
                 i.NU_ANO_CENSO.label("ano"),
-                quantidade_escolas,
-                *agregados,
+                i.CO_ENTIDADE.label("co_entidade"),
+                *colunas_escola,
+                case((or_(*inconsistencias), 1), else_=0).label("inconsistente"),
             )
             .select_from(origem)
             .where(
@@ -424,11 +416,35 @@ class InfraestruturaRepository:
                 i.NU_ANO_CENSO.between(ano_inicio, ano_fim),
                 i.CO_ENTIDADE.is_not(None),
             )
-            .group_by(i.NU_ANO_CENSO)
-            .order_by(i.NU_ANO_CENSO.asc())
+            .group_by(i.NU_ANO_CENSO, i.CO_ENTIDADE)
         )
         if rede_ensino:
-            stmt = stmt.where(d.no_tp_dependencia.in_(rede_ensino))
+            escolas_stmt = escolas_stmt.where(d.no_tp_dependencia.in_(rede_ensino))
+
+        escolas = escolas_stmt.subquery()
+        presentes = sum(case((escolas.c[k] == 1, 1), else_=0) for k in indicadores)
+        validos = sum(case((escolas.c[k].in_((0, 1)), 1), else_=0) for k in indicadores)
+        # NULLIF evita divisao por zero; AVG exclui escolas sem indice calculavel.
+        indice = 100 * presentes.cast(Numeric) / func.nullif(validos, 0)
+        agregados = []
+        for indicador in indicadores:
+            coluna = escolas.c[indicador]
+            agregados.extend([
+                func.sum(case((coluna == 1, 1), else_=0)).label(f"{indicador}__presentes"),
+                func.sum(case((coluna.in_((0, 1)), 1), else_=0)).label(f"{indicador}__validos"),
+            ])
+        stmt = (
+            select(
+                escolas.c.ano,
+                func.count().label("quantidade_escolas"),
+                func.sum(case((validos > 0, 1), else_=0)).label("quantidade_escolas_com_informacao"),
+                func.avg(indice).label("cobertura_media_percentual"),
+                func.sum(escolas.c.inconsistente).label("quantidade_escolas_inconsistentes"),
+                *agregados,
+            )
+            .group_by(escolas.c.ano)
+            .order_by(escolas.c.ano.asc())
+        )
 
         result = await self._execute(stmt)
         return [dict(row) for row in result.mappings()]

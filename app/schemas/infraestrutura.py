@@ -30,6 +30,8 @@ __all__ = [
     "FiltrosVisaoTemporalMunicipioInfraestrutura",
     "IndicadorVisaoTemporalMunicipioInfraestrutura",
     "PontoVisaoTemporalMunicipioInfraestrutura",
+    "MetodologiaVisaoTemporalMunicipioInfraestrutura",
+    "ErroVisaoTemporalMunicipioInfraestruturaResponse",
     "VisaoTemporalMunicipioInfraestruturaData",
     "VisaoTemporalMunicipioInfraestruturaResponse",
     "ANOS_COMPARACAO_INFRAESTRUTURA",
@@ -182,6 +184,8 @@ class FiltrosVisaoTemporalMunicipioInfraestrutura(
     def validar_intervalo_e_indicadores(self) -> Self:
         if self.ano_inicio > self.ano_fim:
             raise ValueError("O ano inicial nao pode ser posterior ao ano final.")
+        if self.ano_inicio == self.ano_fim:
+            raise ValueError("Selecione no minimo dois anos, incluindo os extremos.")
         if len(self.indicadores) != len(set(self.indicadores)):
             raise ValueError("A lista de indicadores nao pode conter repeticoes.")
         if any(
@@ -241,10 +245,39 @@ class PontoVisaoTemporalMunicipioInfraestrutura(
 
     ano: int = Field(..., ge=2000, le=2100)
     quantidade_escolas: int = Field(..., ge=0)
+    quantidade_escolas_com_informacao: int = Field(
+        ..., ge=0,
+        description="Escolas com ao menos uma resposta 0/1 nos indicadores selecionados.",
+    )
+    quantidade_escolas_sem_dados: int = Field(..., ge=0)
+    cobertura_media_percentual: float | None = Field(
+        ..., ge=0, le=100,
+        description=(
+            "Media simples dos indices escolares, com peso igual por escola "
+            "e NULL excluido do denominador escolar."
+        ),
+    )
+    situacao: Literal["com_dados", "sem_dados", "denominador_zero"]
     indicadores: dict[str, IndicadorVisaoTemporalMunicipioInfraestrutura]
 
     @model_validator(mode="after")
     def validar_denominadores(self) -> Self:
+        if (
+            self.quantidade_escolas_com_informacao + self.quantidade_escolas_sem_dados
+            != self.quantidade_escolas
+        ):
+            raise ValueError("Escolas com informacao e sem dados devem totalizar as elegiveis.")
+        esperada = (
+            "denominador_zero" if self.quantidade_escolas == 0
+            else "sem_dados" if self.quantidade_escolas_com_informacao == 0
+            else "com_dados"
+        )
+        if self.situacao != esperada:
+            raise ValueError("Situacao nao corresponde as contagens escolares.")
+        if (self.cobertura_media_percentual is None) != (
+            self.quantidade_escolas_com_informacao == 0
+        ):
+            raise ValueError("Media deve ser null somente quando nao ha escolas com informacao.")
         for agregado in self.indicadores.values():
             if (
                 agregado.quantidade_validos + agregado.quantidade_sem_dados
@@ -256,11 +289,19 @@ class PontoVisaoTemporalMunicipioInfraestrutura(
         return self
 
 
+class MetodologiaVisaoTemporalMunicipioInfraestrutura(_ContratoComparacaoInfraestrutura):
+    versao: Literal["infraestrutura-municipio-v1-req07-provisoria"]
+    homologada: Literal[False]
+    formula: Literal["media_simples_indices_escolares"]
+    avisos: list[str] = Field(..., min_length=2)
+
+
 class VisaoTemporalMunicipioInfraestruturaData(
     _ContratoComparacaoInfraestrutura
 ):
     municipio: MunicipioComparacaoInfraestrutura
     filtros: FiltrosVisaoTemporalMunicipioInfraestrutura
+    metodologia: MetodologiaVisaoTemporalMunicipioInfraestrutura
     serie: list[PontoVisaoTemporalMunicipioInfraestrutura]
 
     @model_validator(mode="after")
@@ -707,3 +748,14 @@ class ErroComparacaoInfraestruturaResponse(_ContratoComparacaoInfraestrutura):
     message: str = Field(
         ..., min_length=1, description="Mensagem legível do erro."
     )
+
+
+class ErroVisaoTemporalMunicipioInfraestruturaResponse(
+    ErroComparacaoInfraestruturaResponse
+):
+    """Erros municipais, incluindo bloqueio por integridade da fonte."""
+
+    code: Literal[
+        "not_found", "internal_error", "warehouse_unavailable",
+        "source_data_inconsistent",
+    ] = Field(..., description="Codigo estavel do erro municipal.")

@@ -1,11 +1,12 @@
 import asyncio
 import json
 from dataclasses import asdict
+from fractions import Fraction
 
 import pandas as pd
 import plotly.graph_objects as go
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, SourceDataInconsistentError
 from app.domain.infraestrutura import (
     InfraestruturaDependencia,
     InfraestruturaEscola,
@@ -371,6 +372,8 @@ class InfraestruturaService:
         """
         if ano_inicio > ano_fim:
             raise ValueError("O ano inicial nao pode ser posterior ao ano final.")
+        if ano_inicio == ano_fim:
+            raise ValueError("Selecione no minimo dois anos, incluindo os extremos.")
 
         indicadores_selecionados = list(
             dict.fromkeys(
@@ -403,6 +406,11 @@ class InfraestruturaService:
             indicadores=indicadores_selecionados,
             rede_ensino=rede_ensino,
         )
+        if any(r["quantidade_escolas_inconsistentes"] for r in registros):
+            raise SourceDataInconsistentError(
+                "Ha valores invalidos ou registros escolares conflitantes nos "
+                "indicadores selecionados. A serie requer revisao da fonte de dados."
+            )
         registros_por_ano = {int(registro["ano"]): registro for registro in registros}
         serie = [
             self._compor_ponto_temporal_municipio(
@@ -426,6 +434,12 @@ class InfraestruturaService:
                     "ano_fim": ano_fim,
                     "indicadores": indicadores_selecionados,
                 },
+                "metodologia": {
+                    "versao": "infraestrutura-municipio-v1-req07-provisoria",
+                    "homologada": False,
+                    "formula": "media_simples_indices_escolares",
+                    "avisos": list(AVISOS_METODOLOGIA_COMPARACAO),
+                },
                 "serie": serie,
             },
         }
@@ -441,6 +455,15 @@ class InfraestruturaService:
             int(registro["quantidade_escolas"])
             if registro is not None
             else 0
+        )
+        com_informacao = (
+            int(registro["quantidade_escolas_com_informacao"]) if registro else 0
+        )
+        media = registro["cobertura_media_percentual"] if registro else None
+        situacao = (
+            "denominador_zero" if quantidade_escolas == 0
+            else "sem_dados" if com_informacao == 0
+            else "com_dados"
         )
         composicao = {}
         for indicador in indicadores:
@@ -459,10 +482,11 @@ class InfraestruturaService:
                 "quantidade_validos": validos,
                 "quantidade_sem_dados": quantidade_escolas - validos,
                 "percentual_presentes": (
-                    round(100 * presentes / validos, 2) if validos else None
+                    float(round(Fraction(100 * presentes, validos), 2))
+                    if validos else None
                 ),
                 "cobertura_percentual": (
-                    round(100 * validos / quantidade_escolas, 2)
+                    float(round(Fraction(100 * validos, quantidade_escolas), 2))
                     if quantidade_escolas
                     else None
                 ),
@@ -470,6 +494,12 @@ class InfraestruturaService:
         return {
             "ano": ano,
             "quantidade_escolas": quantidade_escolas,
+            "quantidade_escolas_com_informacao": com_informacao,
+            "quantidade_escolas_sem_dados": quantidade_escolas - com_informacao,
+            "cobertura_media_percentual": (
+                float(round(media, 2)) if media is not None else None
+            ),
+            "situacao": situacao,
             "indicadores": composicao,
         }
 

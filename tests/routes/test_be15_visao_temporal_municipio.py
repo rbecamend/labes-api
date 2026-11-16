@@ -1,11 +1,17 @@
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.dependencies import get_infraestrutura_service
-from app.core.exceptions import AppError, NotFoundError, app_error_handler
+from app.core.exceptions import AppError, NotFoundError, SourceDataInconsistentError, app_error_handler
 from app.routes.infraestrutura import router
+from app.schemas.infraestrutura import (
+    ErroVisaoTemporalMunicipioInfraestruturaResponse,
+    VisaoTemporalMunicipioInfraestruturaResponse,
+)
+from app.services.infraestrutura_service import AVISOS_METODOLOGIA_COMPARACAO
 
 
 ROTA = "/infraestrutura/analise-temporal/municipios/1501402"
@@ -25,10 +31,20 @@ def _resposta_valida() -> dict:
                 "ano_fim": 2024,
                 "indicadores": ["in_agua_potavel"],
             },
+            "metodologia": {
+                "versao": "infraestrutura-municipio-v1-req07-provisoria",
+                "homologada": False,
+                "formula": "media_simples_indices_escolares",
+                "avisos": list(AVISOS_METODOLOGIA_COMPARACAO),
+            },
             "serie": [
                 {
                     "ano": ano,
                     "quantidade_escolas": 2,
+                    "quantidade_escolas_com_informacao": 2,
+                    "quantidade_escolas_sem_dados": 0,
+                    "cobertura_media_percentual": 50.0,
+                    "situacao": "com_dados",
                     "indicadores": {
                         "in_agua_potavel": {
                             "quantidade_presentes": 1,
@@ -132,6 +148,7 @@ async def test_rota_rejeita_intervalo_invertido():
     [
         (NotFoundError("Municipio nao encontrado."), 404, "not_found"),
         (SQLAlchemyError("warehouse offline"), 503, "warehouse_unavailable"),
+        (SourceDataInconsistentError("Conflito."), 503, "source_data_inconsistent"),
         (RuntimeError("falha inesperada"), 500, "internal_error"),
     ],
 )
@@ -140,6 +157,7 @@ async def test_rota_mapeia_erros_controlados(erro, status_code, code):
 
     assert resposta.status_code == status_code
     assert resposta.json()["code"] == code
+    ErroVisaoTemporalMunicipioInfraestruturaResponse.model_validate(resposta.json())
 
 
 async def test_openapi_documenta_parametros_contrato_e_erros():
@@ -158,3 +176,41 @@ async def test_openapi_documenta_parametros_contrato_e_erros():
         "indicadores",
     }
     assert set(operacao["responses"]) >= {"200", "404", "422", "500", "503"}
+    schemas = resposta.json()["components"]["schemas"]
+    ponto = schemas["PontoVisaoTemporalMunicipioInfraestrutura"]
+    assert set(ponto["required"]) >= {
+        "cobertura_media_percentual", "situacao", "quantidade_escolas",
+        "quantidade_escolas_com_informacao", "quantidade_escolas_sem_dados",
+    }
+    assert schemas["MetodologiaVisaoTemporalMunicipioInfraestrutura"]["properties"]["homologada"]["const"] is False
+    erro = schemas["ErroVisaoTemporalMunicipioInfraestruturaResponse"]
+    assert "source_data_inconsistent" in erro["properties"]["code"]["enum"]
+    assert operacao["responses"]["503"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "/ErroVisaoTemporalMunicipioInfraestruturaResponse"
+    )
+
+
+@pytest.mark.parametrize("query", [
+    "ano_inicio=2024&ano_fim=2024",
+    "indicadores=",
+    "indicadores=inventado",
+    "rede_ensino=Inexistente",
+])
+async def test_rejeita_recortes_invalidos_antes_de_chamar_servico(query):
+    servico = _Servico(resposta=_resposta_valida())
+    resposta = await _get(servico, f"{ROTA}?{query}")
+    assert resposta.status_code == 422
+    assert servico.chamadas == []
+
+
+@pytest.mark.parametrize("alteracao", [
+    {"quantidade_escolas_sem_dados": 1},
+    {"situacao": "sem_dados"},
+    {"cobertura_media_percentual": None},
+    {"cobertura_media_percentual": 101},
+])
+def test_contrato_rejeita_contagens_estado_ou_media_incoerentes(alteracao):
+    resposta = _resposta_valida()
+    resposta["data"]["serie"][0].update(alteracao)
+    with pytest.raises(ValidationError):
+        VisaoTemporalMunicipioInfraestruturaResponse.model_validate(resposta)

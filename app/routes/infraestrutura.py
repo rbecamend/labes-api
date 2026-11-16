@@ -10,6 +10,7 @@ from app.schemas.infraestrutura import (
     AnaliseTemporalResponse,
     ComparacaoInfraestruturaResponse,
     ErroComparacaoInfraestruturaResponse,
+    ErroVisaoTemporalMunicipioInfraestruturaResponse,
     MapaResponse,
     PainelEscolasResponse,
     PainelResponse,
@@ -225,16 +226,16 @@ async def get_analise_temporal_infraestrutura(
     response_model=VisaoTemporalMunicipioInfraestruturaResponse,
     responses={
         404: {
-            "model": ErroComparacaoInfraestruturaResponse,
+            "model": ErroVisaoTemporalMunicipioInfraestruturaResponse,
             "description": "Municipio nao encontrado.",
         },
         500: {
-            "model": ErroComparacaoInfraestruturaResponse,
+            "model": ErroVisaoTemporalMunicipioInfraestruturaResponse,
             "description": "Falha interna inesperada.",
         },
         503: {
-            "model": ErroComparacaoInfraestruturaResponse,
-            "description": "Warehouse indisponivel.",
+            "model": ErroVisaoTemporalMunicipioInfraestruturaResponse,
+            "description": "Warehouse indisponivel ou fonte de dados inconsistente.",
         },
     },
     summary="Serie temporal agregada da infraestrutura de um municipio",
@@ -258,11 +259,22 @@ async def get_visao_temporal_municipio_infraestrutura(
     ),
     service: InfraestruturaService = Depends(get_infraestrutura_service),
 ) -> VisaoTemporalMunicipioInfraestruturaResponse:
-    """Retorna quantidade de escolas, presenca e cobertura por ano."""
+    """Media simples dos indices escolares por ano (REQ07, metodologia provisoria).
+
+    Intervalo minimo de dois anos inclusivos. Escolas sem resposta 0/1 nos
+    indicadores selecionados nao entram na media. A resposta distingue ausencia
+    de escolas e ausencia de informacao, preservando o detalhamento por indicador.
+    Fonte inconsistente retorna 503/source_data_inconsistent, sem serie enganosa.
+    """
     if ano_inicio > ano_fim:
         raise HTTPException(
             status_code=422,
             detail="O ano inicial nao pode ser posterior ao ano final.",
+        )
+    if ano_inicio == ano_fim:
+        raise HTTPException(
+            status_code=422,
+            detail="Selecione no minimo dois anos, incluindo os extremos.",
         )
     try:
         envelope = await service.build_visao_temporal_municipio(
