@@ -1,0 +1,377 @@
+import logging
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from sqlalchemy.exc import SQLAlchemyError
+
+from app.core.dependencies import get_infraestrutura_service
+from app.core.exceptions import AppError, WarehouseUnavailableError
+from app.schemas.infraestrutura import (
+    AnaliseTemporalResponse,
+    ComparacaoInfraestruturaResponse,
+    ErroComparacaoInfraestruturaResponse,
+    ErroVisaoTemporalMunicipioInfraestruturaResponse,
+    MapaResponse,
+    PainelEscolasResponse,
+    PainelResponse,
+    VisaoTemporalMunicipioInfraestruturaResponse,
+)
+from app.services.infraestrutura_service import InfraestruturaService
+
+router = APIRouter(prefix="/infraestrutura", tags=["infraestrutura"])
+logger = logging.getLogger(__name__)
+
+
+# As 17 métricas curadas do notebook (cell-1). Usadas em /painel, /painel/escolas,
+# /mapa e /analise-temporal (fonte: silver.infraestrutura_comum).
+VariavelInfraestrutura = Literal[
+    "in_agua_potavel",
+    "in_energia_rede_publica",
+    "in_esgoto_rede_publica",
+    "in_lixo_servico_coleta",
+    "in_banheiro",
+    "in_banheiro_pne",
+    "in_biblioteca",
+    "in_sala_leitura",
+    "in_laboratorio_ciencias",
+    "in_laboratorio_informatica",
+    "in_sala_multiuso",
+    "in_sala_atendimento_especial",
+    "in_cozinha",
+    "in_refeitorio",
+    "in_quadra_esportes",
+    "in_patio_coberto",
+    "in_auditorio",
+]
+
+RedeEnsino = Literal["Federal", "Estadual", "Municipal", "Privada"]
+TpLocalizacao = Literal["Urbana", "Rural"]
+
+
+@router.get(
+    "/painel",
+    response_model=PainelResponse,
+    summary="Painel de infraestrutura (gráficos + cards)",
+)
+async def get_painel_infraestrutura(
+    ano: int | None = Query(
+        None,
+        description="Ano do censo escolar (ex: 2024). Se omitido, agrega todos os censos.",
+    ),
+    municipios: list[str] | None = Query(
+        None,
+        max_length=4,
+        description=(
+            "Lista de municípios (até 4). Use o parâmetro repetido: "
+            "?municipios=Belém&municipios=Ananindeua. "
+            "Se omitido, o tab_percent cobre todos os municípios do recorte."
+        ),
+    ),
+    variaveis: list[VariavelInfraestrutura] | None = Query(
+        None,
+        description=(
+            "Filtro AND: escolas precisam ter TODAS as variáveis marcadas = 1."
+        ),
+    ),
+    rede_ensino: list[RedeEnsino] | None = Query(
+        None,
+        description="Rede(s) de ensino: Federal, Estadual, Municipal, Privada.",
+    ),
+    tp_localizacao: list[TpLocalizacao] | None = Query(
+        None,
+        description="Localização da escola: Urbana ou Rural.",
+    ),
+    pibid: bool | None = Query(
+        None,
+        description=(
+            "Filtra escolas por participação no PIBID. true = só com PIBID; "
+            "false = só sem PIBID; omitido = todas."
+        ),
+    ),
+    service: InfraestruturaService = Depends(get_infraestrutura_service),
+) -> PainelResponse:
+    """Retorna o painel completo de infraestrutura: cards de total de escolas,
+    tab_percent (barras horizontais por município), barras por dependência e
+    por tipo de localização para a(s) métrica(s) escolhida(s)."""
+    envelope = await service.build_painel(
+        ano=ano,
+        municipios=municipios,
+        rede_ensino=rede_ensino,
+        tp_localizacao=tp_localizacao,
+        variaveis=variaveis,
+        pibid=pibid,
+    )
+    return PainelResponse(**envelope)
+
+
+@router.get(
+    "/painel/escolas",
+    response_model=PainelEscolasResponse,
+    summary="Gráfico paginado de métricas de infraestrutura por escola",
+)
+async def get_painel_escolas_infraestrutura(
+    ano: int | None = Query(
+        None,
+        description="Ano do censo escolar (ex: 2024). Se omitido, usa o censo mais recente de cada escola.",
+    ),
+    municipios: list[str] | None = Query(
+        None,
+        max_length=4,
+        description="Lista de municípios (até 4). Use o parâmetro repetido.",
+    ),
+    variaveis: list[VariavelInfraestrutura] | None = Query(
+        None,
+        description="Filtro AND: escolas precisam ter TODAS as variáveis marcadas = 1.",
+    ),
+    rede_ensino: list[RedeEnsino] | None = Query(
+        None,
+        description="Rede(s) de ensino: Federal, Estadual, Municipal, Privada.",
+    ),
+    tp_localizacao: list[TpLocalizacao] | None = Query(
+        None,
+        description="Localização da escola: Urbana ou Rural.",
+    ),
+    pibid: bool | None = Query(
+        None,
+        description=(
+            "Filtra escolas por participação no PIBID. true = só com PIBID; "
+            "false = só sem PIBID; omitido = todas."
+        ),
+    ),
+    page: int = Query(0, ge=0, description="Página (base 0)."),
+    page_size: int = Query(5, ge=1, le=50, description="Escolas por página (1–50)."),
+    service: InfraestruturaService = Depends(get_infraestrutura_service),
+) -> PainelEscolasResponse:
+    """Retorna uma página do gráfico de métricas por escola (barras empilhadas,
+    ordenado por score DESC) + metadados de paginação."""
+    resultado = await service.build_painel_escolas(
+        ano=ano,
+        municipios=municipios,
+        rede_ensino=rede_ensino,
+        tp_localizacao=tp_localizacao,
+        variaveis=variaveis,
+        pibid=pibid,
+        page=page,
+        page_size=page_size,
+    )
+    return PainelEscolasResponse(
+        descricao="painel_infraestrutura_escolas",
+        data=resultado,
+    )
+
+
+@router.get(
+    "/mapa",
+    response_model=MapaResponse,
+    summary="Escolas com score e classificação de infraestrutura (on-the-fly)",
+)
+async def get_mapa_infraestrutura(
+    ano: int | None = Query(
+        None,
+        description="Ano do censo escolar (nu_ano_censo). Se omitido, retorna todos os anos.",
+    ),
+    variaveis: list[VariavelInfraestrutura] | None = Query(
+        None,
+        description=(
+            "Filtro AND: a escola precisa ter TODAS as variáveis marcadas > 0. "
+            "Use o parâmetro repetido: ?variaveis=in_agua_potavel&variaveis=in_biblioteca."
+        ),
+    ),
+    pibid: bool | None = Query(
+        None,
+        description=(
+            "Filtra escolas por participação no PIBID. true = só com PIBID; "
+            "false = só sem PIBID; omitido = todas."
+        ),
+    ),
+    service: InfraestruturaService = Depends(get_infraestrutura_service),
+) -> MapaResponse:
+    """Retorna as escolas de silver.infraestrutura_comum (uma por escola por ano
+    censo) com as 17 métricas e o score (0–17) e classificação
+    (Boa/Média/Baixa/Inexistente) calculados on-the-fly — não há tabela de score
+    pré-computada na camada gold para infraestrutura."""
+    envelope = await service.build_mapa(ano=ano, variaveis=variaveis, pibid=pibid)
+    return MapaResponse(**envelope)
+
+
+@router.get(
+    "/analise-temporal",
+    response_model=AnaliseTemporalResponse,
+    summary="Evolução temporal da infraestrutura (por localização e por dependência)",
+)
+async def get_analise_temporal_infraestrutura(
+    metrica: VariavelInfraestrutura = Query(
+        "in_agua_potavel",
+        description="Métrica de infraestrutura a plotar nos dois gráficos.",
+    ),
+    pibid: bool | None = Query(
+        None,
+        description=(
+            "Filtra escolas por participação no PIBID. true = só com PIBID; "
+            "false = só sem PIBID; omitido = todas."
+        ),
+    ),
+    service: InfraestruturaService = Depends(get_infraestrutura_service),
+) -> AnaliseTemporalResponse:
+    """Retorna os gráficos de evolução temporal: por tipo de localização
+    (uma linha por urbana/rural) e por tipo de dependência administrativa
+    (uma linha por Federal/Estadual/Municipal/Privada), ambos ao longo
+    dos anos censo."""
+    envelope = await service.build_analise_temporal(metrica=metrica, pibid=pibid)
+    return AnaliseTemporalResponse(**envelope)
+
+
+@router.get(
+    "/analise-temporal/municipios/{co_municipio}",
+    response_model=VisaoTemporalMunicipioInfraestruturaResponse,
+    responses={
+        404: {
+            "model": ErroVisaoTemporalMunicipioInfraestruturaResponse,
+            "description": "Municipio nao encontrado.",
+        },
+        500: {
+            "model": ErroVisaoTemporalMunicipioInfraestruturaResponse,
+            "description": "Falha interna inesperada.",
+        },
+        503: {
+            "model": ErroVisaoTemporalMunicipioInfraestruturaResponse,
+            "description": "Warehouse indisponivel ou fonte de dados inconsistente.",
+        },
+    },
+    summary="Serie temporal agregada da infraestrutura de um municipio",
+)
+async def get_visao_temporal_municipio_infraestrutura(
+    co_municipio: int = Path(
+        ...,
+        ge=1_000_000,
+        le=9_999_999,
+        description="Codigo IBGE do municipio, com sete digitos.",
+    ),
+    rede_ensino: list[RedeEnsino] | None = Query(
+        None,
+        description="Rede(s) de ensino incluída(s) no recorte.",
+    ),
+    ano_inicio: int = Query(2022, ge=2000, le=2100),
+    ano_fim: int = Query(2025, ge=2000, le=2100),
+    indicadores: list[VariavelInfraestrutura] | None = Query(
+        None,
+        description="Indicadores da serie; quando omitidos, usa os 17.",
+    ),
+    service: InfraestruturaService = Depends(get_infraestrutura_service),
+) -> VisaoTemporalMunicipioInfraestruturaResponse:
+    """Media simples dos indices escolares por ano (REQ07, metodologia provisoria).
+
+    Intervalo minimo de dois anos inclusivos. Escolas sem resposta 0/1 nos
+    indicadores selecionados nao entram na media. A resposta distingue ausencia
+    de escolas e ausencia de informacao, preservando o detalhamento por indicador.
+    Fonte inconsistente retorna 503/source_data_inconsistent, sem serie enganosa.
+    """
+    if ano_inicio > ano_fim:
+        raise HTTPException(
+            status_code=422,
+            detail="O ano inicial nao pode ser posterior ao ano final.",
+        )
+    if ano_inicio == ano_fim:
+        raise HTTPException(
+            status_code=422,
+            detail="Selecione no minimo dois anos, incluindo os extremos.",
+        )
+    try:
+        envelope = await service.build_visao_temporal_municipio(
+            co_municipio=co_municipio,
+            rede_ensino=rede_ensino,
+            ano_inicio=ano_inicio,
+            ano_fim=ano_fim,
+            indicadores=indicadores,
+        )
+        return VisaoTemporalMunicipioInfraestruturaResponse.model_validate(
+            envelope
+        )
+    except AppError:
+        raise
+    except SQLAlchemyError as exc:
+        logger.exception("Warehouse indisponivel na visao temporal municipal")
+        raise WarehouseUnavailableError(
+            "Nao foi possivel consultar os dados de infraestrutura."
+        ) from exc
+    except Exception as exc:
+        logger.exception("Falha interna na visao temporal municipal")
+        raise AppError(
+            "Nao foi possivel processar a visao temporal municipal."
+        ) from exc
+
+
+@router.get(
+    "/analise-temporal/escolas/{co_entidade}/comparacao-municipio",
+    response_model=ComparacaoInfraestruturaResponse,
+    responses={
+        404: {
+            "model": ErroComparacaoInfraestruturaResponse,
+            "description": "Escola não encontrada.",
+        },
+        500: {
+            "model": ErroComparacaoInfraestruturaResponse,
+            "description": "Falha interna inesperada.",
+        },
+        503: {
+            "model": ErroComparacaoInfraestruturaResponse,
+            "description": "Warehouse indisponível.",
+        },
+    },
+    summary="Compara a infraestrutura da escola com seu município",
+    description=(
+        "Permite selecionar a(s) rede(s) das escolas de referência e um "
+        "intervalo temporal com pelo menos dois anos de diferença. A resposta "
+        "inclui somente os anos existentes na base dentro do intervalo."
+    ),
+)
+async def get_comparacao_infraestrutura_municipio(
+    co_entidade: int = Path(
+        ...,
+        ge=10_000_000,
+        le=99_999_999,
+        description="Código INEP da escola, com oito dígitos.",
+    ),
+    rede_ensino: list[RedeEnsino] | None = Query(
+        None,
+        description=(
+            "Rede(s) de ensino das escolas de referência: Federal, Estadual, "
+            "Municipal ou Privada. A escola selecionada permanece como alvo."
+        ),
+    ),
+    ano_inicio: int = Query(
+        2022, ge=2000, le=2100,
+        description="Primeiro ano; ano_fim deve estar pelo menos dois anos à frente.",
+    ),
+    ano_fim: int = Query(
+        2025, ge=2000, le=2100,
+        description="Último ano; o intervalo deve ter pelo menos dois anos de diferença.",
+    ),
+    service: InfraestruturaService = Depends(get_infraestrutura_service),
+) -> ComparacaoInfraestruturaResponse:
+    """Compara escola e município na rede de referência e período solicitados."""
+    if ano_fim - ano_inicio < 2:
+        raise HTTPException(
+            status_code=422,
+            detail="O intervalo solicitado deve abranger pelo menos dois anos completos.",
+        )
+    try:
+        envelope = await service.build_comparacao_municipio(
+            co_entidade=co_entidade,
+            rede_ensino=rede_ensino,
+            ano_inicio=ano_inicio,
+            ano_fim=ano_fim,
+        )
+        return ComparacaoInfraestruturaResponse.model_validate(envelope)
+    except AppError:
+        raise
+    except SQLAlchemyError as exc:
+        logger.exception("Warehouse indisponível na comparação de infraestrutura")
+        raise WarehouseUnavailableError(
+            "Não foi possível consultar os dados de infraestrutura."
+        ) from exc
+    except Exception as exc:
+        logger.exception("Falha interna na comparação de infraestrutura")
+        raise AppError(
+            "Não foi possível processar a comparação de infraestrutura."
+        ) from exc

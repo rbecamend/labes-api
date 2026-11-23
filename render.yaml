@@ -1,0 +1,51 @@
+# Configuração inicial para testes. O Postgres Free expira em 30 dias.
+# Antes de aplicar: confirmar workspace, região e disponibilidade do sie.dump.
+services:
+  - type: web
+    name: labes-api
+    runtime: docker
+    repo: https://github.com/rbecamend/labes-api
+    branch: main
+    region: virginia
+    plan: free
+    dockerfilePath: ./Containerfile
+    dockerContext: .
+    healthCheckPath: /
+    autoDeployTrigger: commit
+    envVars:
+      - key: DB_HOST
+        fromDatabase:
+          name: sie-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: sie-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: sie-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: sie-db
+          property: user
+      - key: DB_PASS
+        fromDatabase:
+          name: sie-db
+          property: password
+      - key: ALLOW_ORIGINS
+        sync: false
+      - key: PORT
+        value: "8000"
+      - key: WAREHOUSE_POOL_SIZE
+        value: "5"
+      - key: WAREHOUSE_MAX_OVERFLOW
+        value: "5"
+      - key: WAREHOUSE_MAX_CONCURRENT_QUERIES
+        value: "8"
+
+databases:
+  - name: sie-db
+    databaseName: sie
+    region: virginia
+    plan: free

@@ -1,0 +1,15 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Containerfile
+    container_name: labes-api
+    env_file: .env
+    ports:
+      - "8000:8000"
+    networks:
+      - labes-network
+
+networks:
+  labes-network:
+    external: true

@@ -21,6 +21,16 @@ class ForbiddenError(AppError):
     code = "forbidden"
 
 
+class WarehouseUnavailableError(AppError):
+    status_code = 503
+    code = "warehouse_unavailable"
+
+
+class SourceDataInconsistentError(AppError):
+    status_code = 503
+    code = "source_data_inconsistent"
+
+
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,

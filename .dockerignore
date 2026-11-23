@@ -1,0 +1,15 @@
+.git
+.venv
+.idea
+__pycache__
+*.pyc
+*.pyo
+.env
+.env.*
+!.env.example
+.ruff_cache
+.mypy_cache
+.pytest_cache
+tests/visual/out
+*.dump
+*.backup

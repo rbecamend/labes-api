@@ -6,6 +6,7 @@ API do observatório de dados, construída com **FastAPI** seguindo a arquitetur
 
 - [Arquitetura](docs/ARCHITECTURE.md) — estrutura de camadas, responsabilidades, fluxo de requisição e exemplos de código
 - [Branches](docs/BRANCHING.md) — convenções de branches e fluxo de trabalho com Git
+- [Integração Escola × Município](docs/BE-08-INTEGRACAO-FRONTEND.md) — rota, exemplo JSON, erros e configuração do frontend
 
 ## Estrutura do projeto
 
@@ -88,6 +89,34 @@ uv run main.py
 
 ```bash
 python main.py
+```
+
+A API estará disponível em `http://localhost:8000`
+
+## Container
+
+### Requisitos
+
+- [Podman](https://podman.io/) ou Docker
+
+### Build
+
+```bash
+podman build -t labes-api -f Containerfile .
+```
+
+### Executar
+
+Copie o `.env.example` para `.env` e preencha as variáveis:
+
+```bash
+cp .env.example .env
+```
+
+Suba o container passando o arquivo de variáveis:
+
+```bash
+podman run -p 8000:8000 --env-file .env labes-api
 ```
 
 A API estará disponível em `http://localhost:8000`

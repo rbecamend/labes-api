@@ -1,0 +1,120 @@
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class AcessibilidadeMunicipio:
+    """
+    Percentual de escolas por município com a métrica de acessibilidade
+    selecionada = 1, sobre o total de escolas do município no recorte
+    (ano + filtros de rede/localização).
+
+    Fonte: gold.fato_acessibilidade + gold.dim_entidade +
+    gold.dim_municipio. Valor de `percentual` em 0.0 - 100.0, com 2 casas.
+    """
+
+    codigo_municipio: int
+    municipio: str
+    percentual: float
+    total_escolas: int
+
+
+@dataclass(frozen=True)
+class AcessibilidadeTemporal:
+    """
+    Percentual de escolas com a métrica de acessibilidade selecionada, por
+    (ano censo, tipo de localização). Alimenta o gráfico de evolução temporal
+    por tipo de localização (urbana/rural).
+
+    Fonte: gold.fato_acessibilidade + gold.dim_entidade +
+    gold.dim_tp_localizacao.
+    """
+
+    ano: int
+    codigo_localizacao: int
+    localizacao: str
+    percentual: float
+
+
+# P1G4
+@dataclass(frozen=True)
+class TotalEscolas:
+    """
+    Quantidade total de escolas que atendem aos filtros selecionados e possuem
+    o recurso de acessibilidade física ativo (=1). Alimenta o card KPI de 
+    destaque no topo do painel
+
+    Fonte: gold.fato_acessibilidade + gold.dim_entidade.
+    Granularidade: Um único valor numérico interiro
+    """
+
+    total: int
+
+#P1G5
+@dataclass(frozen=True)
+class AcessibilidadeDependencia:
+    """
+    Percentual de escolas por tipo de dependência administrativa com a métrica 
+    de acessibilidade selecionada = 1, sobre o total de escolas daquela dependência 
+    no recorte filtrado.
+
+    Fonte: gold.fato_acessibilidade + gold.dim_entidade + gold.dim_tp_dependencia.
+    """
+
+    codigo_dependencia: int
+    dependencia: str
+    percentual: float
+    total_escolas: int
+
+
+@dataclass(frozen=True)
+class AcessibilidadeLocalizacao:
+    """
+    Percentual de escolas por tipo de localização (Urbana/Rural) com a métrica
+    de acessibilidade selecionada = 1, sobre o total de escolas daquela
+    localização no recorte filtrado.
+
+    Fonte: gold.fato_acessibilidade + gold.dim_entidade +
+    gold.dim_tp_localizacao.
+    """
+
+    codigo_localizacao: int
+    localizacao: str
+    percentual: float
+    total_escolas: int
+
+
+@dataclass(frozen=True)
+class AcessibilidadeEscola:
+    """
+    Uma escola com o valor (0/1) de cada uma das 15 métricas de
+    acessibilidade e o score (soma das 15). Quando o filtro de `ano` não é
+    informado, representa o censo mais recente disponível para a escola.
+
+    Fonte: gold.fato_acessibilidade + gold.dim_entidade. Alimenta o
+    gráfico de barras empilhadas "Métricas de acessibilidade por escola"
+    do painel.
+    """
+
+    co_entidade: int
+    no_entidade: str
+    nu_ano_censo: int
+    metricas: dict[str, int]
+    score: int
+
+
+@dataclass(frozen=True)
+class AcessibilidadeTemporalDependencia:
+    """
+    Percentual de escolas com a métrica de acessibilidade selecionada,
+    por (ano censo, tipo de dependência administrativa). Alimenta o
+    gráfico de evolução temporal por dependência no endpoint
+    /analise-temporal.
+
+    Fonte: gold.fato_acessibilidade + gold.dim_entidade +
+    gold.dim_tp_dependencia.
+    """
+
+    ano: int
+    codigo_dependencia: int
+    dependencia: str
+    percentual: float
