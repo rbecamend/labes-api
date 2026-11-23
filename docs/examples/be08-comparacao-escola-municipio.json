@@ -9,6 +9,11 @@
       "co_municipio": 1501402,
       "no_municipio": "Belém"
     },
+    "filtros": {
+      "rede_ensino": [],
+      "ano_inicio": 2022,
+      "ano_fim": 2025
+    },
     "metodologia": {
       "versao": "infraestrutura-v3-provisoria",
       "homologada": false,

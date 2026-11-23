@@ -30,7 +30,10 @@ class _ServicoIntegracao:
         self.resposta = resposta
         self.chamadas: list[int] = []
 
-    async def build_comparacao_municipio(self, *, co_entidade: int) -> dict:
+    async def build_comparacao_municipio(
+        self, *, co_entidade: int, rede_ensino=None, ano_inicio=2022, ano_fim=2025
+    ) -> dict:
+        assert (rede_ensino, ano_inicio, ano_fim) == (None, 2022, 2025)
         self.chamadas.append(co_entidade)
         return self.resposta
 
